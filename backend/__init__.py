@@ -16,8 +16,7 @@ def create_app(config_class=Config):
 
     # Povoliť CORS pre frontend (bežiaci na porte 5173 - default pre Vite)
     # V produkcii nastav špecifickejšie!
-    CORS(app, resources={r"/api/*": {"origins": "http://localhost:5173"}})
-
+    CORS(app, origins="http://localhost:5173")
     db.init_app(app)
 
     with app.app_context():

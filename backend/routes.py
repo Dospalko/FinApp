@@ -4,6 +4,10 @@ from . import db
 
 bp = Blueprint('api', __name__) # Názov blueprintu
 
+@bp.route('/ping', methods=['GET']) # Stačí '/ping', lebo '/api' prefix je na Blueprinte
+def ping_route():
+    return jsonify({"message": "Backend je online! (z blueprintu)"})
+
 @bp.route('/expenses', methods=['GET'])
 def get_expenses():
     """Získa všetky výdavky."""

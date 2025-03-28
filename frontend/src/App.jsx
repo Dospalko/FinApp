@@ -1,80 +1,83 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios'; // Importuj axios
-
-// Nastav základnú URL pre API (môžeš dať aj do .env)
-const API_BASE_URL = 'http://localhost:5000/api'; // Predpokladáme, že Flask beží na porte 5000
+// src/App.jsx
+import React, { useState, useEffect, useCallback } from 'react';
+import ExpenseForm from './components/ExpenseForm/ExpenseForm';
+import ExpenseList from './components/ExpenseList/ExpenseList';
+import { getExpenses, addExpense, pingBackend } from './api/expenseApi'; // Import API funkcií
 
 function App() {
-  const [message, setMessage] = useState("Načítavam...");
   const [expenses, setExpenses] = useState([]);
-  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true); // Stav načítania pre zoznam
+  const [isAdding, setIsAdding] = useState(false); // Stav prebiehajúceho pridávania
+  const [error, setError] = useState(null); // Chyba pri načítaní zoznamu
+  const [pingMessage, setPingMessage] = useState("Testujem backend...");
 
-  // Načítanie správy z /api/ping pri prvom rendrovaní
-  useEffect(() => {
-    axios.get(`${API_BASE_URL}/ping`)
-      .then(response => {
-        setMessage(response.data.message || "Backend odpovedal.");
-      })
-      .catch(err => {
-        console.error("Chyba pri pingu:", err);
-        setMessage("Chyba pri spojení s backendom.");
-        setError("Nepodarilo sa načítať stav backendu. Beží na porte 5000?");
-      });
-  }, []); // Prázdne pole znamená, že sa useEffect spustí len raz po montáži
+  // Funkcia na načítanie výdavkov (použijeme useCallback pre optimalizáciu)
+  const fetchExpenses = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const data = await getExpenses();
+      setExpenses(data);
+    } catch (err) {
+      setError(`Chyba pri načítaní výdavkov: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []); // Prázdne pole závislostí - funkcia sa nemení
 
-   // Načítanie výdavkov
+  // Načítanie dát pri prvom rendrovaní
   useEffect(() => {
+    // Test backendu
+    pingBackend()
+        .then(data => setPingMessage(data.message || "Backend OK"))
+        .catch(err => setPingMessage(`Backend nedostupný: ${err.message}`));
+
+    // Načítanie výdavkov
     fetchExpenses();
-  }, []); // Načítať pri prvom rendrovaní
+  }, [fetchExpenses]); // Zavolaj fetchExpenses pri montáži (a ak by sa funkcia zmenila)
 
-  const fetchExpenses = () => {
-    axios.get(`${API_BASE_URL}/expenses`)
-      .then(response => {
-        setExpenses(response.data);
-        setError(null); // Vymazať chybu ak bolo načítanie úspešné
-      })
-      .catch(err => {
-        console.error("Chyba pri načítaní výdavkov:", err);
-        setError("Nepodarilo sa načítať výdavky z API.");
-      });
+
+  // Funkcia na spracovanie pridania výdavku (posielaná do ExpenseForm)
+  const handleExpenseAdd = async (expenseData) => {
+    setIsAdding(true);
+    try {
+        // Zavoláme API funkciu addExpense
+        // Nemusíme ani spracovať vrátený objekt, ak nechceme
+        await addExpense(expenseData);
+        // Po úspešnom pridaní znova načítame celý zoznam
+        await fetchExpenses(); // Jednoduchý spôsob aktualizácie
+        // Alternatíva: manuálne pridať vrátený záznam do stavu 'expenses' bez re-fetchu
+    } catch (error) {
+        console.error("Failed to add expense in App:", error);
+        // Chyba sa spracuje a zobrazí v ExpenseForm, ale môžeme ju aj tu zalogovať
+        // Ak by sme chceli zobraziť globálnu chybu, nastavili by sme tu setError
+        throw error; // Posunieme chybu späť do ExpenseForm, aby ju mohol zobraziť
+    } finally {
+        setIsAdding(false);
+    }
   };
 
-  // Tu neskôr pridáme formulár na pridávanie výdavkov
-
   return (
-    <div className="container mx-auto p-4 bg-gray-100 min-h-screen">
-      <h1 className="text-3xl font-bold text-blue-600 mb-4">
-        Finance Expense Tracker
-      </h1>
-      <p className="mb-4 p-2 bg-blue-100 border border-blue-300 rounded">
-        Backend status: <span className="font-semibold">{message}</span>
-      </p>
+    // Použijeme Tailwind triedy pre základné rozloženie a pozadie
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen">
+      <header className="mb-6 pb-4 border-b border-gray-300">
+        <h1 className="text-3xl font-bold text-center text-gray-800">
+          Finance Expense Tracker
+        </h1>
+        <p className="text-center text-sm text-gray-500 mt-1">{pingMessage}</p>
+      </header>
 
-      {/* Sekcia pre pridanie výdavku (zatiaľ len placeholder) */}
-      <div className="mb-6 p-4 bg-white rounded shadow">
-        <h2 className="text-xl font-semibold mb-2">Pridať Výdavok</h2>
-        {/* Sem príde formulár */}
-        <p className="text-gray-500">(Formulár bude pridaný neskôr)</p>
-      </div>
+      <main>
+        {/* Formulár teraz používa svoj stav pre loading/error */}
+        <ExpenseForm onExpenseAdd={handleExpenseAdd} isAdding={isAdding} />
 
-      {/* Sekcia pre zobrazenie výdavkov */}
-      <div className="bg-white rounded shadow p-4">
-        <h2 className="text-xl font-semibold mb-2">Zoznam Výdavkov</h2>
-        {error && <p className="text-red-500 bg-red-100 p-2 rounded mb-2">{error}</p>}
-        {expenses.length > 0 ? (
-          <ul className="space-y-2">
-            {expenses.map(expense => (
-              <li key={expense.id} className="p-2 border rounded flex justify-between items-center">
-                <span>{expense.description} ({expense.category})</span>
-                <span className="font-medium text-red-600">{expense.amount.toFixed(2)} €</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          !error && <p className="text-gray-500">Zatiaľ žiadne výdavky.</p>
-        )}
-      </div>
-
+        {/* Zoznam zobrazuje stav načítania a chyby z App */}
+        <ExpenseList
+          expenses={expenses}
+          isLoading={isLoading && !error} // Zobraz loading len ak nie je chyba
+          error={error}
+        />
+      </main>
     </div>
   );
 }
