@@ -1,49 +1,42 @@
-// src/components/ExpenseForm/ExpenseForm.jsx
+// frontend/src/components/ExpenseForm/ExpenseForm.jsx
 import React, { useState } from 'react';
 
-// ----- NOVÉ: Definícia kategórií -----
 const CATEGORIES = [
-  "Potraviny",
-  "Bývanie",
-  "Doprava",
-  "Zábava",
-  "Oblečenie",
-  "Zdravie",
-  "Vzdelávanie",
-  "Reštaurácie",
-  "Úspory/Investície",
-  "Ostatné" // Vždy je dobré mať 'Ostatné'
+  "Potraviny", "Bývanie", "Doprava", "Zábava", "Oblečenie",
+  "Zdravie", "Vzdelávanie", "Reštaurácie", "Úspory/Investície", "Ostatné"
 ];
-// Môžeme pridať aj defaultnú hodnotu, ktorú backend ignoruje alebo spracuje špeciálne
-const DEFAULT_CATEGORY_VALUE = ""; // Prázdny reťazec ako indikátor "nevybrané"
+const DEFAULT_CATEGORY_VALUE = ""; // Prázdny reťazec
 
 const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  // ----- ZMENA: Inicializácia kategórie na default -----
   const [category, setCategory] = useState(DEFAULT_CATEGORY_VALUE);
-  const [error, setError] = useState(null);
+  const [formError, setFormError] = useState(null); // Zmena názvu pre jasnoť
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setError(null);
+    setFormError(null);
 
-    if (!description.trim() || !amount) {
-      setError("Popis a suma sú povinné polia.");
+    if (!description.trim()) {
+      setFormError("Popis nesmie byť prázdny.");
       return;
     }
+    if (!amount) {
+        setFormError("Suma je povinná.");
+        return;
+    }
+
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError("Suma musí byť platné kladné číslo.");
+      setFormError("Suma musí byť platné kladné číslo.");
       return;
     }
-    // ----- ZMENA: Získanie kategórie (môže byť DEFAULT_CATEGORY_VALUE) -----
-    const finalCategory = category === DEFAULT_CATEGORY_VALUE ? null : category; // Posielaj null ak nie je vybraná
+
+    const finalCategory = category === DEFAULT_CATEGORY_VALUE ? null : category;
 
     const newExpenseData = {
       description: description.trim(),
       amount: parsedAmount,
-      // Posielaj kategóriu len ak je vybraná (nie je null)
       ...(finalCategory && { category: finalCategory })
     };
 
@@ -51,22 +44,40 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
       await onExpenseAdd(newExpenseData);
       setDescription('');
       setAmount('');
-      // ----- ZMENA: Reset kategórie na default -----
       setCategory(DEFAULT_CATEGORY_VALUE);
     } catch (apiError) {
-      console.error("Chyba pri odosielaní formulára:", apiError);
-      setError(apiError.response?.data?.error || apiError.message || "Nastala chyba pri pridávaní výdavku.");
+      // Skús získať chybovú správu z API response, ak je dostupná
+      const messages = apiError.response?.data?.messages;
+      let errorMessage = "Nastala chyba pri pridávaní výdavku.";
+      if (messages) {
+          // Ak sú messages objekt (z Marshmallow), skús ich spojiť
+          if (typeof messages === 'object') {
+             errorMessage = Object.entries(messages)
+                .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+                .join('; ');
+          } else {
+              errorMessage = String(messages); // Ak je to len string
+          }
+      } else if (apiError.response?.data?.error) {
+          errorMessage = apiError.response.data.error;
+      } else {
+          errorMessage = apiError.message; // Fallback na všeobecnú chybu
+      }
+      setFormError(errorMessage);
+      console.error("Chyba pri odosielaní formulára:", apiError.response?.data || apiError);
     }
   };
 
   return (
+    // Použitie Card komponentu by bolo ideálne, ale zatiaľ bez neho
     <div className="mb-6 p-4 bg-white rounded-lg shadow-md">
       <h2 className="text-xl font-semibold mb-3 text-gray-700">Pridať Nový Výdavok</h2>
-      <form onSubmit={handleSubmit}>
-        {error && (
-          <p className="mb-3 text-red-600 bg-red-100 p-2 rounded border border-red-300">{error}</p>
+      <form onSubmit={handleSubmit} noValidate> {/* noValidate pre HTML5 validáciu */}
+        {formError && (
+          <div className="mb-3 p-3 text-sm text-red-700 bg-red-100 rounded-lg border border-red-300" role="alert">
+            {formError}
+          </div>
         )}
-        {/* Popis (bez zmeny) */}
         <div className="mb-3">
           <label htmlFor="description" className="block text-sm font-medium text-gray-600 mb-1">
             Popis <span className="text-red-500">*</span>
@@ -78,13 +89,11 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Napr. Nákup potravín"
             className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-            required
             disabled={isAdding}
           />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-          {/* Suma (bez zmeny) */}
           <div>
             <label htmlFor="amount" className="block text-sm font-medium text-gray-600 mb-1">
               Suma (€) <span className="text-red-500">*</span>
@@ -98,26 +107,21 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
               step="0.01"
               min="0.01"
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-              required
               disabled={isAdding}
             />
           </div>
-
-          {/* ----- ZMENA: Kategória ako Dropdown ----- */}
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-600 mb-1">
               Kategória
             </label>
             <select
               id="category"
-              value={category} // Hodnota je naviazaná na stav 'category'
-              onChange={(e) => setCategory(e.target.value)} // Update stavu pri zmene
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white" // pridané bg-white pre istotu
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
               disabled={isAdding}
             >
-              {/* Defaultná možnosť */}
               <option value={DEFAULT_CATEGORY_VALUE}>-- Vyberte kategóriu --</option>
-              {/* Dynamicky generované možnosti z poľa CATEGORIES */}
               {CATEGORIES.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
@@ -125,11 +129,8 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
               ))}
             </select>
           </div>
-          {/* ----- KONIEC ZMENY ----- */}
-
         </div>
 
-        {/* Tlačidlo (bez zmeny) */}
         <button
           type="submit"
           className={`w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out ${isAdding ? 'opacity-50 cursor-not-allowed' : ''}`}

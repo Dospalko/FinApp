@@ -1,5 +1,7 @@
 Flask
 Flask-SQLAlchemy
-SQLAlchemy # Hoci je závislosťou Flask-SQLAlchemy, je dobré ju uviesť
-Flask-CORS # Na povolenie komunikácie s frontendom
+SQLAlchemy>=1.4 # Dobré špecifikovať minimálnu verziu
+Flask-CORS
+Flask-Marshmallow
+marshmallow-sqlalchemy
 python-dotenv

@@ -1,49 +1,62 @@
-// src/api/expenseApi.js
+// frontend/src/api/expenseApi.js
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:5000/api'; // Predpokladáme, že Flask beží na porte 5000
+// Načítanie URL z environment premenných Vite (ak sú definované v .env)
+// V .env súbore v 'frontend/' priečinku môžeš mať: VITE_API_BASE_URL=http://127.0.0.1:5000
+// V kóde potom process.env.VITE_API_BASE_URL
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000/api';
+
+console.log("Using API Base URL:", API_BASE_URL); // Pre kontrolu
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  // Môžeme pridať timeout
+  // timeout: 5000,
 });
 
-// Funkcia na získanie všetkých výdavkov
 export const getExpenses = async () => {
   try {
     const response = await apiClient.get('/expenses');
-    return response.data; // Vráti priamo pole výdavkov
+    return response.data;
   } catch (error) {
-    console.error("API Error fetching expenses:", error);
-    // Môžeme vrátiť chybu alebo prázdne pole, záleží na preferencii
-    throw error; // Necháme komponenty spracovať chybu
+    console.error("API Error fetching expenses:", error.response?.data || error.message);
+    throw error; // Posielame ďalej na spracovanie v komponente
   }
 };
 
-// Funkcia na pridanie nového výdavku
 export const addExpense = async (expenseData) => {
-  // expenseData by mal byť objekt: { description: '...', amount: ..., category: '...' }
   try {
     const response = await apiClient.post('/expenses', expenseData);
-    return response.data; // Vráti novovytvorený výdavok z API
+    return response.data;
   } catch (error) {
-    console.error("API Error adding expense:", error);
-    // Ak API vráti validačné chyby, môžu byť v error.response.data
+    console.error("API Error adding expense:", error.response?.data || error.message);
     throw error;
   }
 };
 
-// Funkcia na ping (ak ju ešte potrebujeme)
 export const pingBackend = async () => {
     try {
+        // Voláme teraz /api/ping, keďže sme ho presunuli do expense_bp
         const response = await apiClient.get('/ping');
         return response.data;
     } catch (error) {
-        console.error("API Error pinging backend:", error);
+        // Logujeme detailnejšie
+        console.error("API Error pinging backend:", error.response?.status, error.response?.data || error.message);
         throw error;
     }
 };
-
-// Sem môžeme neskôr pridať deleteExpense, updateExpense atď.
+export const deleteExpense = async (expenseId) => {
+    try {
+      // Pošli DELETE request na /expenses/{expenseId}
+      const response = await apiClient.delete(`/expenses/${expenseId}`);
+      // DELETE zvyčajne vracia status 204 No Content, response.data môže byť prázdne
+      return response.status; // Vrátime status kód pre kontrolu
+    } catch (error) {
+      console.error(`API Error deleting expense ID ${expenseId}:`, error.response?.data || error.message);
+      throw error; // Posielame ďalej na spracovanie
+    }
+  };
+// TODO: Neskôr pridať deleteExpense, updateExpense

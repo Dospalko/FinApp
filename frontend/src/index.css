@@ -1,1 +1,7 @@
 @import "tailwindcss";
+/* frontend/src/styles/index.css */
+
+/* Tu môžeš pridať vlastné globálne štýly alebo @layer components */
+body {
+  @apply bg-gray-100 font-sans; /* Príklad globálneho štýlu cez Tailwind */
+}

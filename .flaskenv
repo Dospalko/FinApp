@@ -1,2 +1,4 @@
-FLASK_APP=backend:create_app # Cesta k funkcii create_app (priečinok:súbor bez .py:funkcia)
-FLASK_ENV=development      # Zapne Debug mód a auto-reload
+FLASK_APP=backend.app:create_app
+FLASK_ENV=development
+FLASK_RUN_PORT=5000
+CORS_ORIGINS=http://localhost:5173
