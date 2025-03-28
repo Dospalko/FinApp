@@ -1,0 +1,11 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.sqlite # Ak používaš SQLite
+instance/ # Flask-špecifické, ale môže sa hodiť pre lokálne súbory
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
