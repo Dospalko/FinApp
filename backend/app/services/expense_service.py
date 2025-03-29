@@ -43,7 +43,44 @@ class ExpenseService:
             # logger.error(f"Database error adding expense: {e}", exc_info=True)
             print(f"Database error adding expense: {e}")
             raise ExpenseServiceError("Nepodarilo sa pridať výdavok do databázy.") from e
+    
+    @staticmethod
+    def update_expense(expense_id, update_payload): # Názov parametra zodpovedá tomu z routy
+        """
+        Aktualizuje existujúci výdavok podľa ID.
+        'update_payload' je objekt Expense vytvorený a validovaný schémou.
+        """
+        try:
+            # 1. Nájdi objekt, ktorý chceme aktualizovať v DB
+            expense_to_update = ExpenseService.get_expense_by_id(expense_id)
 
+            # 2. Skopíruj validované hodnoty z 'update_payload' objektu
+            #    na objekt 'expense_to_update', ktorý je pripojený k DB session.
+            expense_to_update.description = update_payload.description # <-- Použi bodku
+            expense_to_update.amount = update_payload.amount           # <-- Použi bodku
+
+            # Pre kategóriu: Schéma zabezpečí, že 'category' existuje v objekte,
+            # ak bola v JSONe alebo má default (môže byť aj None, ak allow_none=True).
+            # Jednoducho prenesieme hodnotu. DB si poradí s None alebo použije svoj default.
+            if hasattr(update_payload, 'category'): # Iba ak schéma pole naozaj obsahuje
+                 expense_to_update.category = update_payload.category # <-- Použi bodku
+            # else:
+                 # Ak by sme chceli explicitne nastaviť default, ak kategória nebola poslaná:
+                 # expense_to_update.category = 'Nezaradené' # Alebo None, ak DB default je null
+
+
+            # 3. Ulož zmeny do DB (SQLAlchemy sleduje zmeny na 'expense_to_update')
+            db.session.commit()
+            # logger.info(f"Expense updated: ID={expense_id}")
+            return expense_to_update # Vráti aktualizovaný (už uložený) objekt
+        except ExpenseNotFoundError:
+             # Ak get_expense_by_id vyvolal chybu
+             raise
+        except Exception as e:
+            db.session.rollback() # Rollback pri akejkoľvek chybe počas update
+            # logger.error(f"Database error updating expense ID {expense_id}: {e}", exc_info=True)
+            print(f"Database error updating expense ID {expense_id}: {e}")
+            raise ExpenseServiceError(f"Nepodarilo sa aktualizovať výdavok s ID {expense_id}.") from e
     @staticmethod
     def delete_expense_by_id(expense_id):
         """Vymaže výdavok podľa ID."""

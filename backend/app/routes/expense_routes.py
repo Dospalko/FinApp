@@ -76,3 +76,31 @@ def delete_expense_route(expense_id):
          # Neočakávaná chyba
          print(f"Unexpected error in delete_expense_route: {e}")
          return jsonify({"error": "Internal server error"}), 500
+    
+
+@expense_bp.route('/expenses/<int:expense_id>', methods=['PUT'])
+def update_expense_route(expense_id):
+    """Aktualizuje existujúci výdavok podľa ID."""
+    json_data = request.get_json()
+    if not json_data:
+        return jsonify({"error": "No input data provided"}), 400
+
+    try:
+        # Validácia vstupných dát - použijeme rovnakú schému ako pre POST
+        # Schéma zabezpečí, že description a amount sú prítomné a validné
+        update_payload = expense_input_schema.load(json_data)
+    except ValidationError as err:
+        return jsonify({"error": "Invalid input data", "messages": err.messages}), 400
+
+    try:
+        # Zavolaj servisnú metódu na aktualizáciu
+        updated_expense = ExpenseService.update_expense(expense_id, update_payload)
+        # Vráti serializovaný aktualizovaný objekt
+        return jsonify(expense_schema.dump(updated_expense)), 200 # HTTP 200 OK
+    except ExpenseNotFoundError as e:
+        return jsonify({"error": str(e)}), 404
+    except ExpenseServiceError as e:
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+         print(f"Unexpected error in update_expense_route: {e}")
+         return jsonify({"error": "Internal server error"}), 500

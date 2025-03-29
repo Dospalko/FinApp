@@ -1,18 +1,18 @@
-// frontend/src/api/incomeApi.js
+// src/api/incomeApi.js
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000/api';
 
-// Môžeme použiť rovnaký apiClient ako pre výdavky
+// Môžeš použiť rovnaký apiClient alebo si vytvoriť nový, ak treba
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// --- API funkcie pre Príjmy ---
+// --- API funkcie LEN pre Príjmy ---
 export const getIncomes = async () => {
   try {
-    const response = await apiClient.get('/incomes');
+    const response = await apiClient.get('/incomes'); // <-- Správny endpoint pre príjmy
     return response.data;
   } catch (error) {
     console.error("API Error fetching incomes:", error.response?.data || error.message);
@@ -22,7 +22,7 @@ export const getIncomes = async () => {
 
 export const addIncome = async (incomeData) => {
   try {
-    const response = await apiClient.post('/incomes', incomeData);
+    const response = await apiClient.post('/incomes', incomeData); // <-- Správny endpoint
     return response.data;
   } catch (error) {
     console.error("API Error adding income:", error.response?.data || error.message);
@@ -32,7 +32,7 @@ export const addIncome = async (incomeData) => {
 
 export const deleteIncome = async (incomeId) => {
   try {
-    const response = await apiClient.delete(`/incomes/${incomeId}`);
+    const response = await apiClient.delete(`/incomes/${incomeId}`); // <-- Správny endpoint
     return response.status; // Očakávame 204
   } catch (error) {
     console.error(`API Error deleting income ID ${incomeId}:`, error.response?.data || error.message);
@@ -40,6 +40,4 @@ export const deleteIncome = async (incomeId) => {
   }
 };
 
-// Exportujeme aj funkcie pre výdavky, ak je toto spoločný súbor
-export { getExpenses, addExpense, deleteExpense,pingBackend } from './expenseApi'; // Explicitly export only the required functions
-// Alebo ich skopíruj/presuň sem, ak chceš mať všetko v jednom api.js
+// TODO: Neskôr pridať updateIncome

@@ -1,130 +1,180 @@
-// frontend/src/components/ExpenseForm/ExpenseForm.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
+// Definícia kategórií (môže byť aj importovaná z iného súboru)
 const CATEGORIES = [
   "Potraviny", "Bývanie", "Doprava", "Zábava", "Oblečenie",
   "Zdravie", "Vzdelávanie", "Reštaurácie", "Úspory/Investície", "Ostatné"
 ];
-const DEFAULT_CATEGORY_VALUE = ""; // Prázdny reťazec
+const DEFAULT_CATEGORY_VALUE = ""; // Prázdny reťazec pre "nevybrané"
 
-const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
+const ExpenseForm = ({
+    onExpenseAdd,
+    onExpenseUpdate,
+    isProcessing, // true ak prebieha Add alebo Update
+    initialData = null, // Dáta pre predvyplnenie (null pre Add mód)
+    formMode = 'add', // 'add' alebo 'edit'
+    onCancelEdit // Funkcia na zrušenie úprav
+}) => {
+  // --- Stavy Formulára ---
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState(DEFAULT_CATEGORY_VALUE);
-  const [formError, setFormError] = useState(null); // Zmena názvu pre jasnoť
+  const [formError, setFormError] = useState(null); // Chyba špecifická pre tento formulár
 
+  // --- Efekt na Predvyplnenie / Reset ---
+  // Spustí sa vždy, keď sa zmení initialData alebo formMode
+  useEffect(() => {
+    if (formMode === 'edit' && initialData) {
+      // Edit mód: predvyplň dáta
+      setDescription(initialData.description || '');
+      setAmount(initialData.amount?.toString() || ''); // amount je číslo, input potrebuje string
+      setCategory(initialData.category || DEFAULT_CATEGORY_VALUE);
+      setFormError(null); // Vyčisti predchádzajúce chyby
+    } else {
+      // Add mód (alebo ak chýbajú initialData v edit móde): resetuj polia
+      setDescription('');
+      setAmount('');
+      setCategory(DEFAULT_CATEGORY_VALUE);
+      setFormError(null); // Vyčisti predchádzajúce chyby
+    }
+  }, [initialData, formMode]);
+
+  // --- Handler pre Odoslanie Formulára ---
   const handleSubmit = async (event) => {
-    event.preventDefault();
-    setFormError(null);
+    event.preventDefault(); // Zabráni štandardnému odoslaniu HTML formulára
+    setFormError(null); // Reset chýb
 
+    // --- Jednoduchá Validácia na Fronte ---
     if (!description.trim()) {
       setFormError("Popis nesmie byť prázdny.");
       return;
     }
     if (!amount) {
-        setFormError("Suma je povinná.");
-        return;
+      setFormError("Suma je povinná.");
+      return;
     }
-
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setFormError("Suma musí byť platné kladné číslo.");
+      setFormError("Suma musí byť platné kladné číslo (napr. 10.50).");
       return;
     }
 
+    // --- Príprava Dát pre API ---
     const finalCategory = category === DEFAULT_CATEGORY_VALUE ? null : category;
-
-    const newExpenseData = {
+    const expensePayload = {
       description: description.trim(),
       amount: parsedAmount,
-      ...(finalCategory && { category: finalCategory })
+      // Kategóriu pošli len ak je vybraná (nie je null), inak backend použije default
+      ...(finalCategory !== null && { category: finalCategory })
     };
 
+    // --- Volanie API (Add alebo Update) ---
     try {
-      await onExpenseAdd(newExpenseData);
-      setDescription('');
-      setAmount('');
-      setCategory(DEFAULT_CATEGORY_VALUE);
-    } catch (apiError) {
-      // Skús získať chybovú správu z API response, ak je dostupná
-      const messages = apiError.response?.data?.messages;
-      let errorMessage = "Nastala chyba pri pridávaní výdavku.";
-      if (messages) {
-          // Ak sú messages objekt (z Marshmallow), skús ich spojiť
-          if (typeof messages === 'object') {
-             errorMessage = Object.entries(messages)
-                .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
-                .join('; ');
-          } else {
-              errorMessage = String(messages); // Ak je to len string
-          }
-      } else if (apiError.response?.data?.error) {
-          errorMessage = apiError.response.data.error;
+      if (formMode === 'edit') {
+        if (!initialData?.id) {
+          setFormError("Chyba: Chýba ID pre úpravu záznamu."); // Nemalo by nastať
+          return;
+        }
+        // Volanie funkcie z App.jsx na aktualizáciu
+        await onExpenseUpdate(initialData.id, expensePayload);
+        // Formulár sa nevyčistí, App.jsx ho skryje/zmení mód
       } else {
-          errorMessage = apiError.message; // Fallback na všeobecnú chybu
+        // Volanie funkcie z App.jsx na pridanie
+        await onExpenseAdd(expensePayload);
+        // Vyčisti formulár len po úspešnom pridaní
+        setDescription('');
+        setAmount('');
+        setCategory(DEFAULT_CATEGORY_VALUE);
+      }
+    } catch (apiError) {
+      // --- Spracovanie Chýb z API ---
+      const messages = apiError.response?.data?.messages;
+      let errorMessage = `Nastala chyba pri ${formMode === 'edit' ? 'aktualizácii' : 'pridávaní'} výdavku.`; // Defaultná správa
+      if (messages && typeof messages === 'object') {
+        // Skús spojiť validačné chyby z Marshmallow
+        errorMessage = Object.entries(messages)
+          .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+          .join('; ');
+      } else if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error; // Chyba z nášho API
+      } else if (apiError.message) {
+        errorMessage = apiError.message; // Všeobecná chyba (napr. network error)
       }
       setFormError(errorMessage);
-      console.error("Chyba pri odosielaní formulára:", apiError.response?.data || apiError);
+      console.error(`Form Submit Error (${formMode} mode):`, apiError.response || apiError);
     }
   };
 
+  // --- Dynamické Texty ---
+  const isEditMode = formMode === 'edit';
+  const submitButtonText = isEditMode ? 'Uložiť zmeny' : 'Pridať výdavok';
+  const formTitle = isEditMode ? `Upraviť výdavok` : 'Pridať Nový Výdavok';
+
+  // --- JSX Renderovanie ---
   return (
-    // Zmena: Jemnejší tieň, border
-    <div className="p-5 bg-white rounded-lg shadow border border-slate-200">
-      <h2 className="text-xl font-semibold mb-4 text-slate-800">Pridať Nový Výdavok</h2>
+    <div className={`mb-6 p-4 bg-white rounded-lg shadow-md border ${isEditMode ? 'border-blue-400 ring-1 ring-blue-200' : 'border-transparent'}`}>
+      <h2 className="text-xl font-semibold mb-4 text-gray-700">{formTitle}</h2>
+      {/* Zobrazenie popisu upravovaného záznamu */}
+      {isEditMode && initialData?.description && (
+          <p className="text-sm text-gray-500 mb-3">Upravujete: <strong>{initialData.description}</strong> ({initialData.amount?.toFixed(2)} €)</p>
+      )}
+      {/* Formulár */}
       <form onSubmit={handleSubmit} noValidate>
+        {/* Zobrazenie chybovej správy */}
         {formError && (
-          // Zmena: Trochu iný vzhľad error hlášky
-          <div className="mb-4 p-3 text-sm text-red-800 bg-red-100 rounded-md border border-red-200" role="alert">
+          <div className="mb-3 p-3 text-sm text-red-700 bg-red-100 rounded-lg border border-red-300" role="alert">
             {formError}
           </div>
         )}
-        {/* --- Úpravy Inputov a Labelov --- */}
-        <div className="mb-4">
-          <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">
+
+        {/* Popis */}
+        <div className="mb-3">
+          <label htmlFor={isEditMode ? 'edit-description' : 'add-description'} className="block text-sm font-medium text-gray-600 mb-1">
             Popis <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
-            id="description"
+            id={isEditMode ? 'edit-description' : 'add-description'}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Napr. Nákup potravín"
-            // Zmena: Jemnejší border, výraznejší focus ring
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
-            disabled={isAdding}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+            disabled={isProcessing}
+            required
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Riadok: Suma a Kategória */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          {/* Suma */}
           <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor={isEditMode ? 'edit-amount' : 'add-amount'} className="block text-sm font-medium text-gray-600 mb-1">
               Suma (€) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
-              id="amount"
+              id={isEditMode ? 'edit-amount' : 'add-amount'}
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
               step="0.01"
               min="0.01"
-              // Zmena: Rovnaký štýl ako popis
-              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
-              disabled={isAdding}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150"
+              disabled={isProcessing}
+              required
             />
           </div>
+          {/* Kategória */}
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-slate-700 mb-1">
+            <label htmlFor={isEditMode ? 'edit-category' : 'add-category'} className="block text-sm font-medium text-gray-600 mb-1">
               Kategória
             </label>
             <select
-              id="category"
+              id={isEditMode ? 'edit-category' : 'add-category'}
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              // Zmena: Rovnaký štýl ako inputy + šípka
-              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white appearance-none pr-8 bg-no-repeat bg-right bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22M6%208l4%204%204-4%22%2F%3E%3C%2Fsvg%3E')] transition duration-150 ease-in-out"
-              disabled={isAdding}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white transition duration-150"
+              disabled={isProcessing}
             >
               <option value={DEFAULT_CATEGORY_VALUE}>-- Vyberte kategóriu --</option>
               {CATEGORIES.map((cat) => (
@@ -136,17 +186,36 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
           </div>
         </div>
 
-        {/* --- Úprava Tlačidla --- */}
-        <button
-          type="submit"
-          // Zmena: Výraznejšie tlačidlo, tiene, focus štýly, transition
-          className={`w-full px-4 py-2.5 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out disabled:opacity-60 disabled:cursor-not-allowed`}
-          disabled={isAdding}
-        >
-          {isAdding ? 'Pridávam...' : 'Pridať výdavok'}
-        </button>
+        {/* Akčné Tlačidlá */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mt-4">
+             {/* Tlačidlo Zrušiť (len v edit móde) */}
+             {isEditMode && (
+                 <button
+                   type="button" // Dôležité: typ 'button' aby neodosielal formulár
+                   onClick={onCancelEdit} // Zavolá funkciu z App.jsx
+                   disabled={isProcessing} // Zablokuje sa počas spracovania
+                   className={`w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition duration-150 ease-in-out ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                 >
+                   Zrušiť
+                 </button>
+             )}
+             {/* Tlačidlo Odoslať (Pridať / Uložiť zmeny) */}
+            <button
+              type="submit"
+              className={`w-full sm:w-auto px-4 py-2 font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ease-in-out text-white ${
+                  isEditMode
+                    ? 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' // Štýl pre edit
+                    : 'bg-indigo-600 hover:bg-indigo-700 focus:ring-indigo-500' // Štýl pre add
+                } ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`} // Štýl pre processing
+              disabled={isProcessing}
+            >
+              {/* Text tlačidla sa mení podľa stavu */}
+              {isProcessing ? (isEditMode ? 'Ukladám...' : 'Pridávam...') : submitButtonText}
+            </button>
+        </div>
       </form>
     </div>
   );
 };
+
 export default ExpenseForm;

@@ -26,7 +26,17 @@ export const getExpenses = async () => {
     throw error; // Posielame ďalej na spracovanie v komponente
   }
 };
-
+export const updateExpense = async (expenseId, expenseData) => {
+    try {
+      // Pošli PUT request na /expenses/{expenseId} s novými dátami
+      const response = await apiClient.put(`/expenses/${expenseId}`, expenseData);
+      return response.data; // Vráti aktualizovaný objekt z API
+    } catch (error) {
+      console.error(`API Error updating expense ID ${expenseId}:`, error.response?.data || error.message);
+      throw error; // Posielame ďalej na spracovanie
+    }
+  };
+  
 export const addExpense = async (expenseData) => {
   try {
     const response = await apiClient.post('/expenses', expenseData);
