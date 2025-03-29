@@ -1,17 +1,26 @@
 // frontend/src/App.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Pridaný import useMemo
 import ExpenseForm from './components/ExpenseForm/ExpenseForm';
 import ExpenseList from './components/ExpenseList/ExpenseList';
-import { getExpenses, addExpense, pingBackend, deleteExpense } from './api/expenseApi'; // Používame opravené API
+// Importuj aj nový filter komponent a konštantu
+import CategoryFilter, { ALL_CATEGORIES_VALUE } from './components/CategoryFilter/CategoryFilter';
+import { getExpenses, addExpense, pingBackend, deleteExpense } from './api/expenseApi';
 
 function App() {
+  // --- Tvoje existujúce stavy ---
   const [expenses, setExpenses] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
-  const [listError, setListError] = useState(null); // Premenované pre jasnoť
+  const [listError, setListError] = useState(null);
   const [pingMessage, setPingMessage] = useState("Testujem spojenie s backendom...");
-  const [showPing, setShowPing] = useState(true); // Pre možnosť skrytia pingu
-  const [deletingExpenseId, setDeletingExpenseId] = useState(null); 
+  const [showPing, setShowPing] = useState(true);
+  const [deletingExpenseId, setDeletingExpenseId] = useState(null);
+
+  // --- NOVÝ STAV PRE FILTER ---
+  const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_VALUE); // Predvolene zobraz všetky
+
+  // --- Tvoje existujúce funkcie ---
   const fetchExpenses = useCallback(async () => {
     setIsLoading(true);
     setListError(null);
@@ -26,15 +35,12 @@ function App() {
   }, []);
 
   useEffect(() => {
-    // Test backendu pri štarte
     pingBackend()
         .then(data => setPingMessage(data.message || "Backend je pripojený."))
         .catch(err => setPingMessage(`Backend nedostupný: ${err.response?.data?.error || err.message}`))
         .finally(() => {
-            // Skry správu po pár sekundách
             setTimeout(() => setShowPing(false), 5000);
         });
-
     fetchExpenses();
   }, [fetchExpenses]);
 
@@ -43,39 +49,57 @@ function App() {
     setIsAdding(true);
     try {
         await addExpense(expenseData);
-        // Po úspešnom pridaní znova načítame celý zoznam
+        // Fetch expenses, aby sa aktualizovali aj kategórie pre filter
         await fetchExpenses();
     } catch (error) {
-        // Chyba je už spracovaná vo formulári (nastaví setFormError),
-        // ale musíme ju tu 're-throw', aby sme signalizovali neúspech
         console.error("Failed to add expense (re-throwed in App):", error);
-        throw error; // Posunieme chybu do ExpenseForm
+        throw error;
     } finally {
         setIsAdding(false);
     }
   };
+
   const handleExpenseDelete = async (expenseIdToDelete) => {
-    setDeletingExpenseId(expenseIdToDelete); // Nastav ID mazanej položky (pre UI feedback)
-    setListError(null); // Resetuj chybu zoznamu
+    setDeletingExpenseId(expenseIdToDelete);
+    setListError(null);
     try {
         const status = await deleteExpense(expenseIdToDelete);
-        if (status === 204) { // Ak API vrátilo úspech (No Content)
-            // Aktualizuj stav - odstráň položku zo zoznamu
-            // Efektívnejšie ako re-fetch celého zoznamu
-            setExpenses(prevExpenses => prevExpenses.filter(exp => exp.id !== expenseIdToDelete));
+        if (status === 204) {
+             // Fetch expenses, aby sa aktualizovali aj kategórie pre filter
+            await fetchExpenses();
+            // Alternatíva (neaktualizuje filter kategórií):
+            // setExpenses(prevExpenses => prevExpenses.filter(exp => exp.id !== expenseIdToDelete));
             console.log(`Expense with ID ${expenseIdToDelete} deleted successfully.`);
-            // Alternatíva: await fetchExpenses(); // Znova načíta celý zoznam
         } else {
-            // Toto by nemalo nastať pri 204, ale pre istotu
              setListError(`Nepodarilo sa vymazať výdavok (status: ${status}).`);
         }
     } catch (error) {
         console.error(`Failed to delete expense ID ${expenseIdToDelete}:`, error);
         setListError(`Chyba pri mazaní výdavku: ${error.response?.data?.error || error.message}`);
     } finally {
-        setDeletingExpenseId(null); // Resetuj ID mazanej položky po dokončení
+        setDeletingExpenseId(null);
     }
-  };  
+  };
+
+  const availableCategories = useMemo(() => {
+      const categories = new Set(
+          expenses
+              .map(exp => exp.category)
+              .filter(cat => cat && cat !== 'Nezaradené')
+      );
+      return Array.from(categories).sort();
+  }, [expenses]);
+
+  const filteredExpenses = useMemo(() => {
+      if (selectedCategory === ALL_CATEGORIES_VALUE) {
+          return expenses;
+      }
+      return expenses.filter(exp => exp.category === selectedCategory);
+  }, [expenses, selectedCategory]);
+
+  const handleCategoryChange = (category) => {
+      setSelectedCategory(category);
+  };
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen font-sans">
       <header className="mb-6 pb-4 border-b border-gray-300">
@@ -91,12 +115,21 @@ function App() {
 
       <main className="max-w-3xl mx-auto">
         <ExpenseForm onExpenseAdd={handleExpenseAdd} isAdding={isAdding} />
-        <ExpenseList
-          expenses={expenses}
+        {!isLoading && expenses.length > 0 && (
+             <div className="mt-6 bg-white p-4 rounded-lg shadow-md">
+                 <CategoryFilter
+                     categories={availableCategories}
+                     selectedCategory={selectedCategory}
+                     onCategoryChange={handleCategoryChange}
+                 />
+             </div>
+        )}
+          <ExpenseList
+          expenses={filteredExpenses} 
           isLoading={isLoading}
           error={listError}
-          onDelete={handleExpenseDelete} // Poskytnutie funkcie na mazanie
-          deletingExpenseId={deletingExpenseId} // Poskytnutie ID mazanej položky
+          onDelete={handleExpenseDelete}
+          deletingExpenseId={deletingExpenseId}
         />
       </main>
 
