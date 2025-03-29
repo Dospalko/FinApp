@@ -7,6 +7,7 @@ import ExpenseList from './components/ExpenseList/ExpenseList';
 import CategoryFilter, { ALL_CATEGORIES_VALUE } from './components/CategoryFilter/CategoryFilter';
 import { getExpenses, addExpense, pingBackend, deleteExpense } from './api/expenseApi';
 
+import ExpenseChart from './components/ExpenseChart/ExpenseChart';
 function App() {
   // --- Tvoje existujúce stavy ---
   const [expenses, setExpenses] = useState([]);
@@ -100,42 +101,99 @@ function App() {
   const handleCategoryChange = (category) => {
       setSelectedCategory(category);
   };
+     // --- NOVÉ: Spracovanie dát pre graf ---
+  const categoryChartData = useMemo(() => {
+    const totals = {}; // Objekt na ukladanie súčtov pre každú kategóriu
+
+    // Prejdeme všetky výdavky (nie filtrované!)
+    expenses.forEach(expense => {
+      // Použijeme kategóriu, alebo 'Nezaradené' ak je null/undefined
+      const category = expense.category || 'Nezaradené';
+      if (totals[category]) {
+        totals[category] += expense.amount;
+      } else {
+        totals[category] = expense.amount;
+      }
+    });
+
+    // Prevedieme objekt totals na polia pre Chart.js
+    const labels = Object.keys(totals);
+    const data = Object.values(totals);
+
+    // Zoradíme dáta od najväčšej sumy po najmenšiu (voliteľné, pre lepší prehľad v grafe)
+    const sortedIndices = labels.map((_, index) => index).sort((a, b) => data[b] - data[a]);
+    const sortedLabels = sortedIndices.map(index => labels[index]);
+    const sortedData = sortedIndices.map(index => data[index]);
+
+
+    // Vrátime objekt v požadovanom formáte
+    return {
+      // labels: labels,
+      // data: data
+      labels: sortedLabels,
+      data: sortedData
+    };
+  }, [expenses]); // Závislosť len na 'expenses'
+  // --- KONIEC SPRACOVANIA DÁT PRE GRAF ---
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-gray-100 min-h-screen font-sans">
-      <header className="mb-6 pb-4 border-b border-gray-300">
-        <h1 className="text-3xl font-bold text-center text-gray-800">
-          Finance Expense Tracker
-        </h1>
-        {showPing && (
-            <p className={`text-center text-xs mt-1 p-1 rounded ${pingMessage.startsWith('Backend nedostupný') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                {pingMessage}
-            </p>
-        )}
-      </header>
+    // Zmena: Jemnejšie pozadie (slate-50), pridanie min-h-screen na vyplnenie výšky, jemné písmo
+    <div className="min-h-screen bg-slate-50 font-sans text-gray-800">
+      {/* Zmena: Väčšie odsadenie na väčších obrazovkách */}
+      <div className="container mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        <header className="mb-8 pb-4 border-b border-slate-200"> {/* Zmena: Jemnejšia farba border */}
+          <h1 className="text-3xl font-bold text-center text-slate-900"> {/* Zmena: Tmavšia farba nadpisu */}
+            Finance Expense Tracker
+          </h1>
+          {showPing && (
+              // Zmena: Upravené farby pre ping status
+              <p className={`text-center text-xs mt-2 p-1.5 rounded ${pingMessage.startsWith('Backend nedostupný') ? 'bg-red-100 text-red-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                  {pingMessage}
+              </p>
+          )}
+        </header>
 
-      <main className="max-w-3xl mx-auto">
-        <ExpenseForm onExpenseAdd={handleExpenseAdd} isAdding={isAdding} />
-        {!isLoading && expenses.length > 0 && (
-             <div className="mt-6 bg-white p-4 rounded-lg shadow-md">
-                 <CategoryFilter
-                     categories={availableCategories}
-                     selectedCategory={selectedCategory}
-                     onCategoryChange={handleCategoryChange}
-                 />
-             </div>
-        )}
-          <ExpenseList
-          expenses={filteredExpenses} 
-          isLoading={isLoading}
-          error={listError}
-          onDelete={handleExpenseDelete}
-          deletingExpenseId={deletingExpenseId}
-        />
-      </main>
+        {/* Zmena: Možno trochu väčšia maximálna šírka */}
+        <main className="max-w-4xl mx-auto space-y-6"> {/* Pridaný space-y pre medzery medzi sekciami */}
+          {/* Formulár */}
+          <ExpenseForm onExpenseAdd={handleExpenseAdd} isAdding={isAdding} />
 
-      <footer className="text-center mt-8 text-xs text-gray-400">
-         Jednoduchý Expense Tracker - Prototyp
-      </footer>
+          {/* Filter a Zoznam - Zabalíme do jedného divu pre lepšie medzery */}
+          <div>
+            {/* Filter kategórií */}
+            {!isLoading && expenses.length > 0 && (
+               <div className="bg-white p-4 rounded-t-lg shadow-md border border-slate-200 border-b-0"> {/* Mierne úpravy štýlu */}
+                   <CategoryFilter
+                       categories={availableCategories}
+                       selectedCategory={selectedCategory}
+                       onCategoryChange={handleCategoryChange}
+                   />
+               </div>
+            )}
+
+            {/* Zoznam výdavkov */}
+            <ExpenseList
+              expenses={filteredExpenses}
+              isLoading={isLoading}
+              error={listError}
+              onDelete={handleExpenseDelete}
+              deletingExpenseId={deletingExpenseId}
+              // Pridáme prop, aby sme vedeli, či je filter zobrazený (pre zaoblenie rohov)
+              filterVisible={!isLoading && expenses.length > 0}
+            />
+          </div>
+               {/* Zobrazíme, ak nie je loading a sú nejaké dáta pre graf */}
+               {!isLoading && categoryChartData.labels.length > 0 && (
+            <div className="bg-white p-4 sm:p-6 rounded-lg shadow border border-slate-200">
+                <h2 className="text-xl font-semibold mb-4 text-slate-800 text-center">Prehľad výdavkov</h2>
+                <ExpenseChart chartData={categoryChartData} />
+            </div>
+          )}
+        </main>
+
+        <footer className="text-center mt-12 text-xs text-slate-400"> {/* Zmena: Farba pätičky */}
+           Jednoduchý Expense Tracker © {new Date().getFullYear()}
+        </footer>
+      </div>
     </div>
   );
 }

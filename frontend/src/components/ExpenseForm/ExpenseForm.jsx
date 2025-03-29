@@ -69,17 +69,19 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
   };
 
   return (
-    // Použitie Card komponentu by bolo ideálne, ale zatiaľ bez neho
-    <div className="mb-6 p-4 bg-white rounded-lg shadow-md">
-      <h2 className="text-xl font-semibold mb-3 text-gray-700">Pridať Nový Výdavok</h2>
-      <form onSubmit={handleSubmit} noValidate> {/* noValidate pre HTML5 validáciu */}
+    // Zmena: Jemnejší tieň, border
+    <div className="p-5 bg-white rounded-lg shadow border border-slate-200">
+      <h2 className="text-xl font-semibold mb-4 text-slate-800">Pridať Nový Výdavok</h2>
+      <form onSubmit={handleSubmit} noValidate>
         {formError && (
-          <div className="mb-3 p-3 text-sm text-red-700 bg-red-100 rounded-lg border border-red-300" role="alert">
+          // Zmena: Trochu iný vzhľad error hlášky
+          <div className="mb-4 p-3 text-sm text-red-800 bg-red-100 rounded-md border border-red-200" role="alert">
             {formError}
           </div>
         )}
-        <div className="mb-3">
-          <label htmlFor="description" className="block text-sm font-medium text-gray-600 mb-1">
+        {/* --- Úpravy Inputov a Labelov --- */}
+        <div className="mb-4">
+          <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">
             Popis <span className="text-red-500">*</span>
           </label>
           <input
@@ -88,14 +90,15 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Napr. Nákup potravín"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+            // Zmena: Jemnejší border, výraznejší focus ring
+            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
             disabled={isAdding}
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-gray-600 mb-1">
+            <label htmlFor="amount" className="block text-sm font-medium text-slate-700 mb-1">
               Suma (€) <span className="text-red-500">*</span>
             </label>
             <input
@@ -106,19 +109,21 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
               placeholder="0.00"
               step="0.01"
               min="0.01"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              // Zmena: Rovnaký štýl ako popis
+              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition duration-150 ease-in-out"
               disabled={isAdding}
             />
           </div>
           <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-600 mb-1">
+            <label htmlFor="category" className="block text-sm font-medium text-slate-700 mb-1">
               Kategória
             </label>
             <select
               id="category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+              // Zmena: Rovnaký štýl ako inputy + šípka
+              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white appearance-none pr-8 bg-no-repeat bg-right bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20stroke%3D%22%236b7280%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%221.5%22%20d%3D%22M6%208l4%204%204-4%22%2F%3E%3C%2Fsvg%3E')] transition duration-150 ease-in-out"
               disabled={isAdding}
             >
               <option value={DEFAULT_CATEGORY_VALUE}>-- Vyberte kategóriu --</option>
@@ -131,9 +136,11 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
           </div>
         </div>
 
+        {/* --- Úprava Tlačidla --- */}
         <button
           type="submit"
-          className={`w-full px-4 py-2 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out ${isAdding ? 'opacity-50 cursor-not-allowed' : ''}`}
+          // Zmena: Výraznejšie tlačidlo, tiene, focus štýly, transition
+          className={`w-full px-4 py-2.5 bg-indigo-600 text-white font-semibold rounded-md shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out disabled:opacity-60 disabled:cursor-not-allowed`}
           disabled={isAdding}
         >
           {isAdding ? 'Pridávam...' : 'Pridať výdavok'}
@@ -142,5 +149,4 @@ const ExpenseForm = ({ onExpenseAdd, isAdding }) => {
     </div>
   );
 };
-
 export default ExpenseForm;
