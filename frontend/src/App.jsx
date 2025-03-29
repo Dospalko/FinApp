@@ -10,7 +10,7 @@ import {
   getExpenses, addExpense, deleteExpense, updateExpense, pingBackend
 } from './api/expenseApi'; // Funkcie pre výdavky
 import {
-  getIncomes, addIncome, deleteIncome
+  getIncomes, addIncome, deleteIncome, updateIncome // <- Pridaný import updateIncome
 } from './api/incomeApi'; // Funkcie pre príjmy
 
 
@@ -29,20 +29,23 @@ const SummaryCard = ({ title, amount, color, isLoading, isBalance = false }) => 
 );
 
 function App() {
+    // --- Stavy ---
     const [expenses, setExpenses] = useState([]);
     const [isExpensesLoading, setIsExpensesLoading] = useState(true);
     const [expenseListError, setExpenseListError] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState(ALL_CATEGORIES_VALUE);
-    const [editingExpense, setEditingExpense] = useState(null);
+    const [editingExpense, setEditingExpense] = useState(null); // Pre úpravu výdavku
 
     const [incomes, setIncomes] = useState([]);
     const [isIncomesLoading, setIsIncomesLoading] = useState(true);
     const [incomeListError, setIncomeListError] = useState(null);
+    const [editingIncome, setEditingIncome] = useState(null); // <- Stav pre úpravu príjmu
 
     const [pingMessage, setPingMessage] = useState("Testujem spojenie s backendom...");
     const [showPing, setShowPing] = useState(true);
-    const [processingItem, setProcessingItem] = useState(null);
+    const [processingItem, setProcessingItem] = useState(null); // Sleduje prebiehajúce akcie
 
+    // --- Načítanie Dát ---
     const fetchExpenses = useCallback(async () => {
         setIsExpensesLoading(true);
         setExpenseListError(null);
@@ -67,26 +70,22 @@ function App() {
         Promise.all([fetchExpenses(), fetchIncomes()]);
     }, [fetchExpenses, fetchIncomes]);
 
+    // --- Handlery pre Výdavky ---
     const handleExpenseAdd = async (expenseData) => {
         setProcessingItem({ type: 'addExpense', id: null });
-        try {
-            await addExpense(expenseData);
-            await fetchExpenses();
-        } catch (error) {
-            console.error("Failed to add expense:", error);
-            throw error;
-        } finally {
-            setProcessingItem(null);
-        }
+        try { await addExpense(expenseData); await fetchExpenses(); }
+        catch (error) { console.error("Failed to add expense:", error); throw error; }
+        finally { setProcessingItem(null); }
     };
 
     const handleEditStart = (expenseToEdit) => {
-        setEditingExpense(expenseToEdit);
+        setEditingExpense(expenseToEdit); // Nastav výdavok na úpravu
+        setEditingIncome(null); // Zruš prípadnú úpravu príjmu
         setExpenseListError(null);
         document.getElementById('expense-form-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
-    const handleEditCancel = () => {
+    const handleEditCancel = () => { // Zruší úpravu VÝDAVKU
         setEditingExpense(null);
     };
 
@@ -94,16 +93,10 @@ function App() {
         setProcessingItem({ type: 'updateExpense', id: expenseId });
         try {
             const updatedExpense = await updateExpense(expenseId, updatedData);
-            setExpenses(prevExpenses =>
-                prevExpenses.map(exp => (exp.id === expenseId ? updatedExpense : exp))
-            );
+            setExpenses(prevExpenses => prevExpenses.map(exp => (exp.id === expenseId ? updatedExpense : exp)));
             setEditingExpense(null);
-        } catch (error) {
-            console.error("Update expense failed in App:", error);
-            throw error;
-        } finally {
-            setProcessingItem(null);
-        }
+        } catch (error) { console.error("Update expense failed in App:", error); throw error; }
+        finally { setProcessingItem(null); }
     };
 
     const handleExpenseDelete = async (expenseIdToDelete) => {
@@ -113,49 +106,60 @@ function App() {
             const status = await deleteExpense(expenseIdToDelete);
             if (status === 204) {
                 setExpenses(prevExpenses => prevExpenses.filter(exp => exp.id !== expenseIdToDelete));
-                 if (editingExpense?.id === expenseIdToDelete) {
-                    setEditingExpense(null);
-                }
-            } else {
-                setExpenseListError(`Nepodarilo sa vymazať výdavok (status: ${status}).`);
-            }
+                if (editingExpense?.id === expenseIdToDelete) { setEditingExpense(null); }
+            } else { setExpenseListError(`Nepodarilo sa vymazať výdavok (status: ${status}).`); }
         } catch (error) {
             console.error(`Failed to delete expense ID ${expenseIdToDelete}:`, error);
             setExpenseListError(`Chyba pri mazaní výdavku: ${error.response?.data?.error || error.message}`);
-        } finally {
-            setProcessingItem(null);
-        }
+        } finally { setProcessingItem(null); }
     };
 
+    // --- Handlery pre Príjmy ---
     const handleIncomeAdd = async (incomeData) => {
         setProcessingItem({ type: 'addIncome', id: null });
-        try {
-            await addIncome(incomeData);
-            await fetchIncomes();
-        } catch (error) {
-            console.error("Failed to add income:", error);
-            throw error;
-        } finally {
-            setProcessingItem(null);
-        }
+        try { await addIncome(incomeData); await fetchIncomes(); }
+        catch (error) { console.error("Failed to add income:", error); throw error; }
+        finally { setProcessingItem(null); }
     };
 
+     // --- Handler pre ZAČATIE ÚPRAVY PRÍJMU ---
+    const handleIncomeEditStart = (incomeToEdit) => {
+        setEditingIncome(incomeToEdit); // Nastav príjem na úpravu
+        setEditingExpense(null); // Zruš prípadnú úpravu výdavku
+        setIncomeListError(null);
+        document.getElementById('income-form-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    // --- Handler pre ZRUŠENIE ÚPRAVY PRÍJMU ---
+    const handleIncomeEditCancel = () => { // Zruší úpravu PRÍJMU
+        setEditingIncome(null);
+    };
+
+    // --- Handler pre ULOŽENIE ÚPRAVY PRÍJMU ---
+    const handleIncomeUpdate = async (incomeId, updatedData) => {
+        setProcessingItem({ type: 'updateIncome', id: incomeId });
+        try {
+            const updatedIncome = await updateIncome(incomeId, updatedData); // Volaj API na úpravu príjmu
+            setIncomes(prevIncomes => prevIncomes.map(inc => (inc.id === incomeId ? updatedIncome : inc))); // Aktualizuj stav príjmov
+            setEditingIncome(null); // Ukonči edit mód pre príjmy
+        } catch (error) { console.error("Update income failed in App:", error); throw error; } // Posuň chybu do IncomeForm
+        finally { setProcessingItem(null); }
+    };
+
+    // Handler pre MAZANIE PRÍJMU
     const handleIncomeDelete = async (incomeIdToDelete) => {
         setProcessingItem({ type: 'deleteIncome', id: incomeIdToDelete });
         setIncomeListError(null);
         try {
             const status = await deleteIncome(incomeIdToDelete);
             if (status === 204) {
-                await fetchIncomes();
-            } else {
-                setIncomeListError(`Nepodarilo sa vymazať príjem (status: ${status}).`);
-            }
+                 setIncomes(prevIncomes => prevIncomes.filter(inc => inc.id !== incomeIdToDelete)); // Odstráň zo stavu
+                 if (editingIncome?.id === incomeIdToDelete) { setEditingIncome(null); } // Zruš úpravu ak mažem upravovanú položku
+            } else { setIncomeListError(`Nepodarilo sa vymazať príjem (status: ${status}).`); }
         } catch (error) {
             console.error(`Failed to delete income ID ${incomeIdToDelete}:`, error);
             setIncomeListError(`Chyba pri mazaní príjmu: ${error.response?.data?.error || error.message}`);
-        } finally {
-            setProcessingItem(null);
-        }
+        } finally { setProcessingItem(null); }
     };
 
     const availableCategories = useMemo(() => {
@@ -265,19 +269,40 @@ function App() {
                     </div>
 
                     <div className="space-y-6">
-                        <IncomeForm
-                            onIncomeAdd={handleIncomeAdd}
-                            isAdding={processingItem?.type === 'addIncome'}
-                        />
+                        {/* Formulár Príjmov - pridanie props pre editáciu */}
+                         <div id="income-form-section"> {/* ID pre prípadný scroll pri úprave */}
+                            <IncomeForm
+                                // Kľúč pomáha Reactu správne resetovať stav pri zmene módu/položky
+                                key={editingIncome ? `edit-inc-${editingIncome.id}` : 'add-inc'}
+                                // Určuje, či je formulár v móde pridania alebo úpravy
+                                formMode={editingIncome ? 'edit' : 'add'}
+                                // Dáta na predvyplnenie formulára v edit móde
+                                initialData={editingIncome}
+                                // Funkcia na spracovanie pridania
+                                onIncomeAdd={handleIncomeAdd}
+                                // Funkcia na spracovanie uloženia úpravy
+                                onIncomeUpdate={handleIncomeUpdate} // <- Chýbalo
+                                // Indikátor, či prebieha Add alebo Update tejto položky
+                                isProcessing={ // <- Upravená logika
+                                    processingItem?.type === 'addIncome' ||
+                                    (processingItem?.type === 'updateIncome' && processingItem?.id === editingIncome?.id)
+                                }
+                                // Funkcia na zrušenie úpravy
+                                onCancelEdit={handleIncomeEditCancel} // <- Chýbalo
+                            />
+                        </div>
+
+                        {/* Zoznam Príjmov - pridanie props pre editáciu */}
                         <IncomeList
                             incomes={incomes}
                             isLoading={isIncomesLoading}
                             error={incomeListError}
                             onDelete={handleIncomeDelete}
-                            deletingIncomeId={processingItem?.type === 'deleteIncome' ? processingItem.id : null}
+                            onEdit={handleIncomeEditStart} // <- Chýbalo (funkcia na začatie úpravy)
+                            // Posiela info o type a ID prebiehajúcej akcie (Delete alebo Update)
+                            processingItem={processingItem}   // <- Upravená prop (namiesto deletingIncomeId)
                         />
-                    </div>
-
+                        </div>
                 </main>
 
                 <footer className="text-center mt-12 text-xs text-slate-400">

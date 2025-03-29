@@ -1,131 +1,132 @@
-// src/components/IncomeForm/IncomeForm.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const IncomeForm = ({ onIncomeAdd, isAdding }) => {
+// Zdroj príjmu ponecháme ako textové pole pre jednoduchosť
+// Ak by si chcel fixné zdroje, definuj ich tu ako pole:
+// const INCOME_SOURCES = ["Plat", "Brigáda", "Prenájom", "Dar", "Ostatné"];
+// const DEFAULT_SOURCE_VALUE = "";
+
+const IncomeForm = ({
+    onIncomeAdd,
+    onIncomeUpdate,
+    isProcessing,
+    initialData = null,
+    formMode = 'add',
+    onCancelEdit
+}) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [source, setSource] = useState(''); // Zdroj príjmu
+  const [source, setSource] = useState(''); // Pre textové pole
+  // const [source, setSource] = useState(DEFAULT_SOURCE_VALUE); // Pre select
   const [formError, setFormError] = useState(null);
+
+  useEffect(() => {
+    if (formMode === 'edit' && initialData) {
+      setDescription(initialData.description || '');
+      setAmount(initialData.amount?.toString() || '');
+      setSource(initialData.source || ''); // Pre textové pole
+      // setSource(initialData.source || DEFAULT_SOURCE_VALUE); // Pre select
+      setFormError(null);
+    } else {
+      setDescription('');
+      setAmount('');
+      setSource(''); // Pre textové pole
+      // setSource(DEFAULT_SOURCE_VALUE); // Pre select
+      setFormError(null);
+    }
+  }, [initialData, formMode]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setFormError(null);
 
-    // Validácia
-    if (!description.trim()) {
-      setFormError("Popis nesmie byť prázdny.");
-      return;
-    }
-    if (!amount) {
-        setFormError("Suma je povinná.");
-        return;
-    }
+    if (!description.trim()) { setFormError("Popis nesmie byť prázdny."); return; }
+    if (!amount) { setFormError("Suma je povinná."); return; }
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setFormError("Suma musí byť platné kladné číslo.");
-      return;
-    }
+    if (isNaN(parsedAmount) || parsedAmount <= 0) { setFormError("Suma musí byť platné kladné číslo."); return; }
 
-    // Príprava dát pre API
-    const newIncomeData = {
+    // const finalSource = source === DEFAULT_SOURCE_VALUE ? null : source; // Pre select
+    const incomePayload = {
       description: description.trim(),
       amount: parsedAmount,
-      ...(source.trim() && { source: source.trim() }) // Pridaj zdroj len ak je vyplnený
+      ...(source.trim() && { source: source.trim() }) // Pre textové pole
+      // ...(finalSource !== null && { source: finalSource }) // Pre select
     };
 
-    // Volanie API a spracovanie odpovede/chyby
     try {
-      await onIncomeAdd(newIncomeData); // Zavolaj funkciu z App.jsx
-      // Reset formulára po úspechu
-      setDescription('');
-      setAmount('');
-      setSource('');
-    } catch (apiError) {
-      // Získanie chybovej správy (podobne ako v ExpenseForm)
-      const messages = apiError.response?.data?.messages;
-      let errorMessage = "Nastala chyba pri pridávaní príjmu.";
-      if (messages && typeof messages === 'object') {
-         errorMessage = Object.entries(messages)
-            .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
-            .join('; ');
-      } else if (apiError.response?.data?.error) {
-          errorMessage = apiError.response.data.error;
-      } else if (apiError.message) {
-          errorMessage = apiError.message;
+      if (formMode === 'edit') {
+        if (!initialData?.id) { setFormError("Chyba: Chýba ID príjmu."); return; }
+        await onIncomeUpdate(initialData.id, incomePayload);
+      } else {
+        await onIncomeAdd(incomePayload);
+        setDescription('');
+        setAmount('');
+        setSource(''); // Pre textové pole
+        // setSource(DEFAULT_SOURCE_VALUE); // Pre select
       }
-      setFormError(errorMessage);
-      console.error("Chyba pri odosielaní formulára príjmu:", apiError.response?.data || apiError);
+    } catch (apiError) {
+        const messages = apiError.response?.data?.messages;
+        let errorMessage = `Nastala chyba pri ${formMode === 'edit' ? 'aktualizácii' : 'pridávaní'} príjmu.`;
+        if (messages && typeof messages === 'object') {
+            errorMessage = Object.entries(messages)
+               .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : msgs}`)
+               .join('; ');
+        } else if (apiError.response?.data?.error) {
+            errorMessage = apiError.response.data.error;
+        } else if (apiError.message) {
+            errorMessage = apiError.message;
+        }
+        setFormError(errorMessage);
+        console.error(`Income Form Submit Error (${formMode}):`, apiError.response || apiError);
     }
   };
 
-  // --- JSX s Tailwind Triedami ---
+  const isEditMode = formMode === 'edit';
+  const submitButtonText = isEditMode ? 'Uložiť zmeny' : 'Pridať príjem';
+  const formTitle = isEditMode ? 'Upraviť príjem' : 'Pridať Nový Príjem';
+
   return (
-    <div className="p-5 bg-white rounded-lg shadow border border-slate-200">
-      <h2 className="text-xl font-semibold mb-4 text-slate-800">Pridať Nový Príjem</h2>
+    <div className={`p-5 bg-white rounded-lg shadow border ${isEditMode ? 'border-green-400 ring-1 ring-green-200' : 'border-slate-200'}`}>
+      <h2 className="text-xl font-semibold mb-4 text-slate-800">{formTitle}</h2>
+       {isEditMode && initialData?.description && (
+           <p className="text-sm text-gray-500 mb-3">Upravujete: <strong>{initialData.description}</strong> (+{initialData.amount?.toFixed(2)} €)</p>
+       )}
       <form onSubmit={handleSubmit} noValidate>
-        {/* Zobrazenie chyby */}
-        {formError && (
-          <div className="mb-4 p-3 text-sm text-red-800 bg-red-100 rounded-md border border-red-200" role="alert">
-            {formError}
-          </div>
-         )}
-        {/* Popis */}
+        {formError && ( <div className="mb-4 p-3 text-sm text-red-800 bg-red-100 rounded-md border border-red-200" role="alert">{formError}</div> )}
+
         <div className="mb-4">
-          <label htmlFor="income-description" className="block text-sm font-medium text-slate-700 mb-1">
-            Popis <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="income-description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Napr. Výplata, Predaj na Bazoši"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" // Zmenená focus farba na zelenú (emerald)
-            disabled={isAdding}
-          />
+          <label htmlFor={isEditMode ? 'edit-income-desc' : 'add-income-desc'} className="block text-sm font-medium text-slate-700 mb-1">Popis <span className="text-red-500">*</span></label>
+          <input type="text" id={isEditMode ? 'edit-income-desc' : 'add-income-desc'} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Napr. Výplata, Predaj na Bazoši" className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" disabled={isProcessing} required />
         </div>
-        {/* Suma a Zdroj vedľa seba */}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
-            <label htmlFor="income-amount" className="block text-sm font-medium text-slate-700 mb-1">
-              Suma (€) <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              id="income-amount"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0.01"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" // Zelený focus
-              disabled={isAdding}
-            />
+            <label htmlFor={isEditMode ? 'edit-income-amount' : 'add-income-amount'} className="block text-sm font-medium text-slate-700 mb-1">Suma (€) <span className="text-red-500">*</span></label>
+            <input type="number" id={isEditMode ? 'edit-income-amount' : 'add-income-amount'} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" step="0.01" min="0.01" className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" disabled={isProcessing} required/>
           </div>
           <div>
-            <label htmlFor="income-source" className="block text-sm font-medium text-slate-700 mb-1">
-              Zdroj (nepovinné)
-            </label>
-            <input
-              type="text"
-              id="income-source"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              placeholder="Napr. Zamestnávateľ, Klient"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" // Zelený focus
-              disabled={isAdding}
-            />
+            <label htmlFor={isEditMode ? 'edit-income-source' : 'add-income-source'} className="block text-sm font-medium text-slate-700 mb-1">Zdroj (nepovinné)</label>
+            <input type="text" id={isEditMode ? 'edit-income-source' : 'add-income-source'} value={source} onChange={(e) => setSource(e.target.value)} placeholder="Napr. Zamestnávateľ, Klient" className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" disabled={isProcessing}/>
+             {/* Alebo select, ak máš INCOME_SOURCES: */}
+             {/* <select id={isEditMode ? 'edit-income-source' : 'add-income-source'} value={source} onChange={(e) => setSource(e.target.value)} className="w-full ..." disabled={isProcessing}>
+                 <option value={DEFAULT_SOURCE_VALUE}>-- Vyberte zdroj --</option>
+                 {INCOME_SOURCES.map((src) => ( <option key={src} value={src}>{src}</option> ))}
+             </select> */}
           </div>
         </div>
-        {/* Tlačidlo Odoslať */}
-        <button
-          type="submit"
-          // Zelené tlačidlo pre príjmy
-          className={`w-full px-4 py-2.5 bg-emerald-600 text-white font-semibold rounded-md shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition duration-150 ease-in-out disabled:opacity-60 disabled:cursor-not-allowed`}
-          disabled={isAdding}
-        >
-          {isAdding ? 'Pridávam...' : 'Pridať príjem'}
-        </button>
+
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mt-4">
+             {isEditMode && (
+                 <button type="button" onClick={onCancelEdit} disabled={isProcessing} className={`w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition duration-150 ease-in-out ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>Zrušiť</button>
+             )}
+             <button type="submit" className={`w-full sm:w-auto px-4 py-2.5 font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ease-in-out text-white ${
+                  isEditMode
+                    ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' // Edit = Zelená
+                    : 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500' // Add = Smaragdová
+                } ${isProcessing ? 'opacity-60 cursor-not-allowed' : ''}`}
+               disabled={isProcessing}>
+               {isProcessing ? (isEditMode ? 'Ukladám...' : 'Pridávam...') : submitButtonText}
+             </button>
+        </div>
       </form>
     </div>
   );

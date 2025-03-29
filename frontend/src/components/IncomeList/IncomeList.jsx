@@ -1,41 +1,89 @@
-// src/components/IncomeList/IncomeList.jsx
 import React from 'react';
 
-const IncomeItem = ({ income, onDelete, isDeleting }) => {
+const IncomeItem = ({ income, onDelete, onEdit, isProcessing }) => {
   const handleDeleteClick = () => {
       if (window.confirm(`Naozaj chcete zmazať príjem "${income.description}"?`)) {
           onDelete(income.id);
       }
   };
 
+  const handleEditClick = () => {
+     onEdit(income);
+  };
+
+  const isItemProcessing = isProcessing?.id === income.id;
+  const actionType = isProcessing?.type; // napr. deleteIncome, updateIncome
+
   return (
-    <li className={`flex flex-wrap justify-between items-center px-4 py-3 bg-white border-b border-slate-200 last:border-b-0 transition duration-150 ease-in-out ${isDeleting ? 'opacity-60 bg-red-50' : 'hover:bg-slate-50'}`}>
-      {/* Popis a Zdroj */}
-      <div className="flex items-center mb-1 sm:mb-0 mr-4">
-        <span className="font-medium text-slate-800 mr-2">{income.description}</span>
+    <li className={`flex flex-wrap justify-between items-center px-4 py-3 bg-white border-b border-slate-200 last:border-b-0 transition duration-150 ease-in-out ${
+        isItemProcessing ? 'opacity-60 bg-yellow-50 pointer-events-none' : 'hover:bg-slate-50'
+    }`}>
+      <div className="flex items-center mb-1 sm:mb-0 mr-4 flex-grow">
+        <span className="font-medium text-slate-800 mr-2 break-words">{income.description}</span>
         {income.source && income.source !== 'Neznámy zdroj' && (
-          <span className="text-xs font-medium text-green-800 bg-green-100 px-2 py-0.5 rounded-full">
+          <span className="text-xs font-medium text-green-800 bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">
             {income.source}
           </span>
         )}
       </div>
-      {/* Suma a Tlačidlo Zmazať */}
-      <div className="flex items-center space-x-4 ml-auto">
-         <span className="font-semibold text-green-600 text-sm sm:text-base text-right min-w-[70px]">
+      <div className="flex items-center space-x-2 ml-auto flex-shrink-0">
+         <span className="font-semibold text-green-600 text-sm sm:text-base text-right min-w-[80px]">
              {typeof income.amount === 'number' ? `+${income.amount.toFixed(2)} €` : 'N/A'}
          </span>
-         <button onClick={handleDeleteClick} disabled={isDeleting} className="..." title="Zmazať príjem">
-           {/* ... (SVG ikona koša a text 'Zmazať'/'Mažem...') ... */}
+         <button
+            onClick={handleEditClick}
+            disabled={isItemProcessing}
+            className={`px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 transition duration-150 ease-in-out ${
+                isItemProcessing ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800'
+            }`}
+            title="Upraviť príjem"
+         >
+            {(isItemProcessing && actionType === 'updateIncome') ? 'Ukladám...' : 'Upraviť'}
+         </button>
+         <button
+            onClick={handleDeleteClick}
+            disabled={isItemProcessing}
+            className={`px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-400 transition duration-150 ease-in-out ${
+                isItemProcessing ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:bg-red-100 hover:text-red-800'
+            }`}
+            title="Zmazať príjem"
+         >
+           {(isItemProcessing && actionType === 'deleteIncome') ? 'Mažem...' : 'Zmazať'}
          </button>
       </div>
     </li>
   );
 };
 
-const IncomeList = ({ incomes = [], isLoading, error, onDelete, deletingIncomeId }) => {
-  if (isLoading) { return <div className="text-center p-4 text-gray-500">Načítavam príjmy...</div>; }
-  if (error) { return <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg border border-red-300" role="alert">{error}</div>; }
-  if (!incomes || incomes.length === 0) { return <div className="text-center p-6 text-slate-500 bg-white rounded-lg shadow-md border border-slate-200">Zatiaľ žiadne príjmy.</div>; }
+const IncomeList = ({ incomes = [], isLoading, error, onDelete, onEdit, processingItem }) => {
+  if (isLoading) {
+       return (
+           <div className="mt-6 p-4 rounded-lg shadow-inner bg-gray-50 text-center text-gray-500">
+               Načítavam príjmy...
+               <div className="space-y-2 mt-4 animate-pulse">
+                   <div className="h-10 bg-gray-200 rounded"></div>
+                   <div className="h-10 bg-gray-200 rounded"></div>
+               </div>
+           </div>
+       );
+  }
+
+  if (error) {
+      return (
+           <div className="mt-6 p-4 rounded-lg shadow-inner bg-red-50 border border-red-200" role="alert">
+               <p className="text-sm text-red-700 font-medium">Chyba pri načítaní príjmov:</p>
+               <p className="text-sm text-red-600">{error}</p>
+           </div>
+      );
+  }
+
+  if (!incomes || incomes.length === 0) {
+      return (
+           <div className="mt-6 p-6 rounded-lg shadow-md border border-slate-200 bg-white text-center text-slate-500">
+               Zatiaľ žiadne príjmy. Pridajte svoj prvý príjem.
+           </div>
+       );
+   }
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-slate-200 overflow-hidden">
@@ -46,7 +94,8 @@ const IncomeList = ({ incomes = [], isLoading, error, onDelete, deletingIncomeId
             key={income.id}
             income={income}
             onDelete={onDelete}
-            isDeleting={deletingIncomeId === income.id}
+            onEdit={onEdit}
+            isProcessing={processingItem}
           />
         ))}
       </ul>

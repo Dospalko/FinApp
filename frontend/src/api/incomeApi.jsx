@@ -40,4 +40,13 @@ export const deleteIncome = async (incomeId) => {
   }
 };
 
-// TODO: Neskôr pridať updateIncome
+// --- NOVÁ FUNKCIA ---
+export const updateIncome = async (incomeId, incomeData) => {
+    try {
+      const response = await apiClient.put(`/incomes/${incomeId}`, incomeData);
+      return response.data;
+    } catch (error) {
+      console.error(`API Error updating income ID ${incomeId}:`, error.response?.data || error.message);
+      throw error;
+    }
+  };
