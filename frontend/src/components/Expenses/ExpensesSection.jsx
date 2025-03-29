@@ -1,8 +1,8 @@
 import React from 'react';
-import ExpenseForm from '../ExpenseForm/ExpenseForm';
-import ExpenseList from '../ExpenseList/ExpenseList';
+import ExpenseForm from './ExpenseForm/ExpenseForm';
+import ExpenseList from './ExpenseList/ExpenseList';
 import CategoryFilter from '../CategoryFilter/CategoryFilter';
-import ExpenseChart from '../ExpenseChart/ExpenseChart';
+import ExpenseChart from './ExpenseChart/ExpenseChart';
 
 const ExpensesSection = ({
     expensesHook, // Celý objekt vrátený z useExpenses

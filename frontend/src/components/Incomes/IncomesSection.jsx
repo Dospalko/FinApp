@@ -1,6 +1,6 @@
 import React from 'react';
-import IncomeForm from '../IncomeForm/IncomeForm';
-import IncomeList from '../IncomeList/IncomeList';
+import IncomeForm from './IncomeForm/IncomeForm';
+import IncomeList from './IncomeList/IncomeList';
 
 const IncomesSection = ({
     incomesHook, // Celý objekt vrátený z useIncomes

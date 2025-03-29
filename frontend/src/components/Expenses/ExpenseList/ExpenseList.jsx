@@ -1,32 +1,35 @@
-// frontend/src/components/ExpenseList/ExpenseList.jsx
+// src/components/ExpenseList/ExpenseList.jsx
 import React from 'react';
+import { formatDateForDisplay } from '../../../utils/dateUtils';
+// --- NOVÝ IMPORT ---
 
-// --- Komponent pre jednu položku v zozname ---
+// --- ÚPRAVA ExpenseItem ---
 const ExpenseItem = ({ expense, onDelete, onEdit, isProcessing }) => {
-
-    // Handler pre kliknutie na Zmazať
     const handleDeleteClick = () => {
         if (window.confirm(`Naozaj chcete zmazať výdavok "${expense.description}"?`)) {
-            onDelete(expense.id); // Zavolá funkciu z App.jsx
+            onDelete(expense.id);
         }
     };
-
-    // Handler pre kliknutie na Upraviť
     const handleEditClick = () => {
-        onEdit(expense); // Zavolá funkciu z App.jsx s celým objektom
+        onEdit(expense);
     };
 
-    // Zistíme, či táto položka prechádza nejakou akciou a akou
     const isItemProcessing = isProcessing?.id === expense.id;
-    const actionType = isProcessing?.type; // 'delete', 'update', 'addExpense', atď.
+    const actionType = isProcessing?.type;
 
     return (
         <li className={`p-3 mb-2 border border-gray-200 rounded-md flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white shadow-sm transition duration-150 ease-in-out ${
-            isItemProcessing ? 'opacity-60 bg-yellow-50 pointer-events-none' : 'hover:bg-gray-50' // Štýl počas spracovania
+            isItemProcessing ? 'opacity-60 bg-yellow-50 pointer-events-none' : 'hover:bg-gray-50'
         }`}>
-            {/* Časť s popisom a kategóriou */}
+            {/* Popis, Kategória a Dátum */}
             <div className="mb-2 sm:mb-0 flex-grow mr-4">
-                <span className="font-medium text-gray-800 block sm:inline">{expense.description}</span>
+                {/* --- PRIDANÉ ZOBRAZENIE DÁTUMU --- */}
+                <span className="text-xs text-gray-500 block sm:inline sm:mr-2">
+                    {/* Predpokladáme, že API vracia pole 'date_created' */}
+                    {formatDateForDisplay(expense.date_created)}
+                </span>
+                {/* --- KONIEC ZOBRAZENIA DÁTUMU --- */}
+                <span className="font-medium text-gray-800 block sm:inline break-words">{expense.description}</span>
                 {expense.category && expense.category !== 'Nezaradené' && (
                     <span className="ml-0 sm:ml-2 mt-1 sm:mt-0 inline-block text-xs font-medium text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
                         {expense.category}
@@ -34,43 +37,21 @@ const ExpenseItem = ({ expense, onDelete, onEdit, isProcessing }) => {
                 )}
             </div>
 
-            {/* Časť so sumou a tlačidlami */}
-            <div className="flex items-center justify-end space-x-2">
-                {/* Suma */}
-                <span className="font-semibold text-red-600 w-24 text-right flex-shrink-0">
+            {/* Suma a Tlačidlá */}
+            <div className="flex items-center justify-end space-x-2 flex-shrink-0">
+                <span className="font-semibold text-red-600 w-24 text-right">
                     {typeof expense.amount === 'number' ? `${expense.amount.toFixed(2)} €` : 'N/A'}
                 </span>
-
-                {/* Tlačidlo Upraviť */}
-                <button
-                    onClick={handleEditClick}
-                    disabled={isItemProcessing} // Zablokované počas spracovania tejto položky
-                    className={`px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 transition duration-150 ease-in-out ${
-                        isItemProcessing ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800'
-                    }`}
-                    title="Upraviť výdavok"
-                >
-                    {/* Zmena textu počas ukladania úpravy */}
+                <button onClick={handleEditClick} disabled={isItemProcessing} className={`px-2 py-1 text-xs ...`} title="Upraviť výdavok">
                     {(isItemProcessing && actionType === 'updateExpense') ? 'Ukladám...' : 'Upraviť'}
                 </button>
-
-                {/* Tlačidlo Zmazať */}
-                <button
-                    onClick={handleDeleteClick}
-                    disabled={isItemProcessing} // Zablokované počas spracovania tejto položky
-                    className={`px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-400 transition duration-150 ease-in-out ${
-                        isItemProcessing ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:bg-red-100 hover:text-red-800'
-                    }`}
-                    title="Zmazať výdavok"
-                >
-                    {/* Zmena textu počas mazania */}
-                    {(isItemProcessing && actionType === 'deleteExpense') ? 'Mažem...' : 'Zmazať'}
+                <button onClick={handleDeleteClick} disabled={isItemProcessing} className={`px-2 py-1 text-xs ...`} title="Zmazať výdavok">
+                   {(isItemProcessing && actionType === 'deleteExpense') ? 'Mažem...' : 'Zmazať'}
                 </button>
             </div>
         </li>
     );
 };
-
 // --- Komponent pre celý zoznam ---
 const ExpenseList = ({ expenses = [], isLoading, error, onDelete, onEdit, processingItem, filterVisible }) => {
 

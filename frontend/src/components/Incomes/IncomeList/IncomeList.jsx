@@ -1,24 +1,34 @@
+// src/components/IncomeList/IncomeList.jsx
 import React from 'react';
+import { formatDateForDisplay } from '../../../utils/dateUtils';
+// --- NOVÝ IMPORT ---
 
+// --- ÚPRAVA IncomeItem ---
 const IncomeItem = ({ income, onDelete, onEdit, isProcessing }) => {
   const handleDeleteClick = () => {
       if (window.confirm(`Naozaj chcete zmazať príjem "${income.description}"?`)) {
           onDelete(income.id);
       }
   };
-
   const handleEditClick = () => {
      onEdit(income);
   };
 
   const isItemProcessing = isProcessing?.id === income.id;
-  const actionType = isProcessing?.type; // napr. deleteIncome, updateIncome
+  const actionType = isProcessing?.type;
 
   return (
     <li className={`flex flex-wrap justify-between items-center px-4 py-3 bg-white border-b border-slate-200 last:border-b-0 transition duration-150 ease-in-out ${
         isItemProcessing ? 'opacity-60 bg-yellow-50 pointer-events-none' : 'hover:bg-slate-50'
     }`}>
+      {/* Popis, Zdroj a Dátum */}
       <div className="flex items-center mb-1 sm:mb-0 mr-4 flex-grow">
+        {/* --- PRIDANÉ ZOBRAZENIE DÁTUMU --- */}
+        <span className="text-xs text-gray-500 mr-2">
+            {/* Predpokladáme, že API vracia pole 'date_created' */}
+            {formatDateForDisplay(income.date_created)}
+        </span>
+        {/* --- KONIEC ZOBRAZENIA DÁTUMU --- */}
         <span className="font-medium text-slate-800 mr-2 break-words">{income.description}</span>
         {income.source && income.source !== 'Neznámy zdroj' && (
           <span className="text-xs font-medium text-green-800 bg-green-100 px-2 py-0.5 rounded-full whitespace-nowrap">
@@ -26,28 +36,15 @@ const IncomeItem = ({ income, onDelete, onEdit, isProcessing }) => {
           </span>
         )}
       </div>
+      {/* Suma a Tlačidlá */}
       <div className="flex items-center space-x-2 ml-auto flex-shrink-0">
          <span className="font-semibold text-green-600 text-sm sm:text-base text-right min-w-[80px]">
              {typeof income.amount === 'number' ? `+${income.amount.toFixed(2)} €` : 'N/A'}
          </span>
-         <button
-            onClick={handleEditClick}
-            disabled={isItemProcessing}
-            className={`px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-blue-400 transition duration-150 ease-in-out ${
-                isItemProcessing ? 'text-gray-400 cursor-not-allowed' : 'text-blue-600 hover:bg-blue-100 hover:text-blue-800'
-            }`}
-            title="Upraviť príjem"
-         >
+         <button onClick={handleEditClick} disabled={isItemProcessing} className={`px-2 py-1 text-xs ...`} title="Upraviť príjem">
             {(isItemProcessing && actionType === 'updateIncome') ? 'Ukladám...' : 'Upraviť'}
          </button>
-         <button
-            onClick={handleDeleteClick}
-            disabled={isItemProcessing}
-            className={`px-2 py-1 text-xs font-medium rounded focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-red-400 transition duration-150 ease-in-out ${
-                isItemProcessing ? 'text-gray-400 cursor-not-allowed' : 'text-red-600 hover:bg-red-100 hover:text-red-800'
-            }`}
-            title="Zmazať príjem"
-         >
+         <button onClick={handleDeleteClick} disabled={isItemProcessing} className={`px-2 py-1 text-xs ...`} title="Zmazať príjem">
            {(isItemProcessing && actionType === 'deleteIncome') ? 'Mažem...' : 'Zmazať'}
          </button>
       </div>
