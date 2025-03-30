@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion'; // Import pre animácie
 
 // Import Hookov
 import { usePing } from './hooks/usePing';
@@ -14,41 +15,94 @@ import IncomesSection from './components/Incomes/IncomesSection';
 import BudgetSetup from './components/Budgeting/BudgetSetup';
 import BudgetStatus from './components/Budgeting/BudgetStatus';
 import Rule503020Status from './components/Budgeting/Rule503020Status';
-import Tabs from './components/Shared/Tabs'; // Nový import
-import DateSelector from './components/Shared/DateSelector'; // Nový import
+import Tabs from './components/Shared/Tabs';
+import DateSelector from './components/Shared/DateSelector';
 
 function App() {
-    // --- Hooky ---
     const { pingMessage, showPing } = usePing();
     const expensesHook = useExpenses();
     const incomesHook = useIncomes();
-
-    // --- Zdieľaný Stav ---
     const [processingItem, setProcessingItem] = useState(null);
-
-    // --- Stav pre Výber Obdobia ---
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
     const [selectedMonth, setSelectedMonth] = useState(currentMonth);
     const [selectedYear, setSelectedYear] = useState(currentYear);
+    const [activeTab, setActiveTab] = useState('expenses');
 
-    // --- NOVÉ: Stav pre Aktívnu Záložku ---
-    const [activeTab, setActiveTab] = useState('expenses'); // Predvolená záložka
+    const handleAddExpense = async (data) => {
+        setProcessingItem({ type: 'addExpense', id: null });
+        try {
+            await expensesHook.addExpenseHandler(data);
+        } catch (error) {
+            console.error("App: Add Expense Error", error);
+            throw error;
+        } finally {
+            setProcessingItem(null);
+        }
+    };
 
-    // --- Wrapper Handlery (zostávajú rovnaké) ---
-    const handleAddExpense = async (data) => { /* ... */ };
-    const handleUpdateExpense = async (id, data) => { /* ... */ };
-    const handleDeleteExpense = async (id) => { /* ... */ };
-    const handleAddIncome = async (data) => { /* ... */ };
-    const handleUpdateIncome = async (id, data) => { /* ... */ };
-    const handleDeleteIncome = async (id) => { /* ... */ };
+    const handleUpdateExpense = async (id, data) => {
+        setProcessingItem({ type: 'updateExpense', id });
+        try {
+            await expensesHook.updateExpenseHandler(id, data);
+        } catch (error) {
+            console.error("App: Update Expense Error", error);
+            throw error;
+        } finally {
+            setProcessingItem(null);
+        }
+    };
 
-    // --- Výpočty pre Súhrn (zostávajú rovnaké) ---
+    const handleDeleteExpense = async (id) => {
+        setProcessingItem({ type: 'deleteExpense', id });
+        try {
+            await expensesHook.deleteExpenseHandler(id);
+        } catch (error) {
+             expensesHook.setError(`Chyba pri mazaní výdavku: ${error.message}`);
+        } finally {
+            setProcessingItem(null);
+        }
+    };
+
+    const handleAddIncome = async (data) => {
+        setProcessingItem({ type: 'addIncome', id: null });
+        try {
+            await incomesHook.addIncomeHandler(data);
+        } catch (error) {
+            console.error("App: Add Income Error", error);
+            throw error;
+        } finally {
+            setProcessingItem(null);
+        }
+    };
+
+     const handleUpdateIncome = async (id, data) => {
+        setProcessingItem({ type: 'updateIncome', id });
+        try {
+            await incomesHook.updateIncomeHandler(id, data);
+        } catch (error) {
+             console.error("App: Update Income Error", error);
+            throw error;
+        } finally {
+            setProcessingItem(null);
+        }
+    };
+
+    const handleDeleteIncome = async (id) => {
+        setProcessingItem({ type: 'deleteIncome', id });
+         try {
+            await incomesHook.deleteIncomeHandler(id);
+        } catch (error) {
+             incomesHook.setError(`Chyba pri mazaní príjmu: ${error.message}`);
+        } finally {
+            setProcessingItem(null);
+        }
+    };
+
     const totalIncome = useMemo(() => incomesHook.incomes.reduce((sum, income) => sum + income.amount, 0), [incomesHook.incomes]);
     const totalExpenses = useMemo(() => expensesHook.expenses.reduce((sum, expense) => sum + expense.amount, 0), [expensesHook.expenses]);
     const balance = useMemo(() => totalIncome - totalExpenses, [totalIncome, totalExpenses]);
 
-    // --- Handlery pre Výber Mesiaca/Roka (zostávajú rovnaké) ---
     const handleMonthChange = (event) => {
         setSelectedMonth(parseInt(event.target.value, 10));
         expensesHook.cancelEditingExpense();
@@ -60,14 +114,17 @@ function App() {
         incomesHook.cancelEditingIncome();
     };
 
-    // --- Definícia Záložiek ---
     const TABS = [
         { id: 'expenses', name: 'Výdavky' },
         { id: 'incomes', name: 'Príjmy' },
         { id: 'budgets', name: 'Rozpočty' },
-        // Môžeme pridať aj prehľad ako samostatnú záložku
-        // { id: 'overview', name: 'Prehľad' },
     ];
+
+     const tabContentVariants = {
+        hidden: { opacity: 0, x: activeTab === 'expenses' ? -20 : activeTab === 'budgets' ? 20 : 0 }, // Slide zľava/sprava
+        visible: { opacity: 1, x: 0, transition: { duration: 0.3, ease: "easeOut" } },
+        exit: { opacity: 0, x: activeTab === 'expenses' ? 20 : activeTab === 'budgets' ? -20 : 0, transition: { duration: 0.2, ease: "easeIn" } } // Slide preč
+    };
 
     return (
         <div className="min-h-screen bg-slate-100 font-sans text-gray-800">
@@ -82,75 +139,56 @@ function App() {
                     isIncomesLoading={incomesHook.isLoading}
                 />
 
-                {/* Komponent Záložiek */}
                 <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
-                {/* Podmienené renderovanie obsahu podľa aktívnej záložky */}
-                <div className="mt-6">
-                    {/* === OBSAH ZÁLOŽKY VÝDAVKY === */}
-                    {activeTab === 'expenses' && (
-                         // ExpensesSection už obsahuje formulár, filter, graf a zoznam
-                        <ExpensesSection
-                            expensesHook={expensesHook}
-                            processingItem={processingItem}
-                            onAddExpense={handleAddExpense}
-                            onUpdateExpense={handleUpdateExpense}
-                            onDeleteExpense={handleDeleteExpense}
-                        />
-                    )}
-
-                    {/* === OBSAH ZÁLOŽKY PRÍJMY === */}
-                    {activeTab === 'incomes' && (
-                        // IncomesSection obsahuje formulár a zoznam
-                         <IncomesSection
-                            incomesHook={incomesHook}
-                            processingItem={processingItem}
-                            onAddIncome={handleAddIncome}
-                            onUpdateIncome={handleUpdateIncome}
-                            onDeleteIncome={handleDeleteIncome}
-                        />
-                    )}
-
-                    {/* === OBSAH ZÁLOŽKY ROZPOČTY === */}
-                    {activeTab === 'budgets' && (
-                        <div className="space-y-8">
-                            {/* Výber obdobia pre rozpočty */}
-                            <DateSelector
-                                selectedMonth={selectedMonth}
-                                selectedYear={selectedYear}
-                                onMonthChange={handleMonthChange}
-                                onYearChange={handleYearChange}
+                <AnimatePresence mode='wait'>
+                    <motion.div
+                        key={activeTab} // Kľúč zabezpečí animáciu pri zmene
+                        variants={tabContentVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className="mt-6 overflow-hidden" // Overflow hidden môže pomôcť pri slide animáciách
+                    >
+                        {activeTab === 'expenses' && (
+                            <ExpensesSection
+                                expensesHook={expensesHook}
+                                processingItem={processingItem}
+                                onAddExpense={handleAddExpense}
+                                onUpdateExpense={handleUpdateExpense}
+                                onDeleteExpense={handleDeleteExpense}
                             />
-                             {/* Grid pre rozpočtové komponenty */}
-                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                                <BudgetStatus selectedYear={selectedYear} selectedMonth={selectedMonth} />
-                                <Rule503020Status selectedYear={selectedYear} selectedMonth={selectedMonth} />
-                                <BudgetSetup
-                                    selectedYear={selectedYear}
+                        )}
+                        {activeTab === 'incomes' && (
+                            <IncomesSection
+                                incomesHook={incomesHook}
+                                processingItem={processingItem}
+                                onAddIncome={handleAddIncome}
+                                onUpdateIncome={handleUpdateIncome}
+                                onDeleteIncome={handleDeleteIncome}
+                            />
+                        )}
+                        {activeTab === 'budgets' && (
+                            <div className="space-y-8">
+                                <DateSelector
                                     selectedMonth={selectedMonth}
-                                    allExpenseCategories={expensesHook.availableCategories}
-                                    // isProcessing={...} // Môžeme pridať neskôr
-                                    // setBudget={...}   // Predpokladáme, že BudgetSetup volá API priamo
+                                    selectedYear={selectedYear}
+                                    onMonthChange={handleMonthChange}
+                                    onYearChange={handleYearChange}
                                 />
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                                    <BudgetStatus selectedYear={selectedYear} selectedMonth={selectedMonth} />
+                                    <Rule503020Status selectedYear={selectedYear} selectedMonth={selectedMonth} />
+                                    <BudgetSetup
+                                        selectedYear={selectedYear}
+                                        selectedMonth={selectedMonth}
+                                        allExpenseCategories={expensesHook.availableCategories}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                    )}
-
-                     {/* === OBSAH ZÁLOŽKY PREHĽAD (Príklad) === */}
-                     {/* {activeTab === 'overview' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-                             {!expensesHook.isLoading && expensesHook.categoryChartData.labels.length > 0 && (
-                                <div className="bg-white p-4 sm:p-6 rounded-xl shadow-lg border border-slate-200">
-                                    <h2 className="text-lg font-semibold mb-4 text-slate-800 text-center">Prehľad výdavkov</h2>
-                                    <ExpenseChart chartData={expensesHook.categoryChartData} />
-                                 </div>
-                             )}
-                             <Rule503020Status selectedYear={selectedYear} selectedMonth={selectedMonth} />
-
-                        </div>
-                     )} */}
-
-                </div>
+                        )}
+                    </motion.div>
+                </AnimatePresence>
 
                 <Footer />
             </div>
