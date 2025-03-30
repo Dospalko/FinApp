@@ -1,91 +1,89 @@
-// src/components/ExpenseChart/ExpenseChart.jsx
 import React from 'react';
-// Importujeme špecifický typ grafu a potrebné prvky z Chart.js
 import { Doughnut } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  ArcElement, // Potrebné pre Doughnut/Pie grafy
-  Tooltip,    // Pre zobrazenie info pri hoveri
-  Legend      // Pre legendu grafu
-} from 'chart.js';
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
-// Musíme zaregistrovať prvky, ktoré budeme používať
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// Funkcia na generovanie náhodných (alebo preddefinovaných) farieb pre graf
+// Paleta inšpirovaná Revolutom (mix tmavších a výraznejších)
+const REVOLUT_INSPIRED_COLORS = [
+  '#6D28D9', // Violet 700
+  '#4F46E5', // Indigo 600
+  '#0D9488', // Teal 600
+  '#EC4899', // Pink 500
+  '#F59E0B', // Amber 500
+  '#10B981', // Emerald 500
+  '#3B82F6', // Blue 500
+  '#8B5CF6', // Violet 500
+  '#D946EF', // Fuchsia 500
+  '#06B6D4', // Cyan 500
+  '#EF4444', // Red 500
+  '#6B7280', // Slate 500
+];
+
 const generateColors = (numColors) => {
-  // Môžeš použiť preddefinovanú paletu alebo generátor
-  const colors = [
-    '#4F46E5', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#8B5CF6',
-    '#D946EF', '#06B6D4', '#EF4444', '#6B7280', '#6EE7B7', '#FCD34D',
-  ];
-  // Opakuj farby, ak je kategórií viac ako farieb v palete
-  return Array.from({ length: numColors }, (_, i) => colors[i % colors.length]);
+  return Array.from({ length: numColors }, (_, i) => REVOLUT_INSPIRED_COLORS[i % REVOLUT_INSPIRED_COLORS.length]);
 };
 
 const ExpenseChart = ({ chartData }) => {
-  // chartData očakávame ako objekt: { labels: ['Kat1', 'Kat2'], data: [100, 50] }
-
   if (!chartData || chartData.labels.length === 0) {
-    return <p className="text-center text-slate-500 py-4">Žiadne dáta na zobrazenie v grafe.</p>;
+    return null; // Nezobrazuj nič, ak nie sú dáta
   }
 
-  // Pripravíme dáta pre Chart.js
   const data = {
     labels: chartData.labels,
     datasets: [
       {
-        label: 'Výdavky podľa kategórií (€)', // Označenie datasetu
+        label: 'Výdavky (€)',
         data: chartData.data,
-        backgroundColor: generateColors(chartData.labels.length), // Generované farby
-        borderColor: '#ffffff', // Biela farba okrajov segmentov
-        borderWidth: 1,
+        backgroundColor: generateColors(chartData.labels.length),
+        borderColor: '#ffffff', // Biele okraje
+        borderWidth: 2, // Trochu hrubšie okraje
+        hoverOffset: 8 // Zvýraznenie segmentu pri hoveri
       },
     ],
   };
 
-  // Možnosti konfigurácie grafu
   const options = {
-    responsive: true, // Graf sa prispôsobí veľkosti kontajnera
-    maintainAspectRatio: false, // Dôležité, ak chceme nastaviť výšku kontajnerom
+    responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top', // Pozícia legendy (top, bottom, left, right)
+        position: 'bottom', // Legenda dole
          labels: {
-             boxWidth: 12, // Menšie štvorčeky farieb
-             padding: 15, // Odsadenie legendy
-             font: {
-                 size: 10 // Menšie písmo legendy
-             }
+             boxWidth: 12,
+             padding: 20,
+             font: { size: 11 },
+             color: '#475569' // tmavšia sivá pre text legendy (slate-600)
          }
       },
       tooltip: {
+        backgroundColor: '#334155', // Tmavé pozadie tooltipu (slate-700)
+        titleColor: '#cbd5e1', // Svetlý nadpis tooltipu (slate-300)
+        bodyColor: '#e2e8f0', // Svetlý text tooltipu (slate-200)
+        padding: 10,
+        cornerRadius: 4,
+        boxPadding: 4,
         callbacks: {
-          // Formátovanie tooltipu - pridá menu (€)
           label: function(context) {
             let label = context.label || '';
-            if (label) {
-              label += ': ';
-            }
+            if (label) { label += ': '; }
             if (context.parsed !== null) {
+              // Formátovanie bez znamienka mínus
               label += new Intl.NumberFormat('sk-SK', { style: 'currency', currency: 'EUR' }).format(context.parsed);
             }
             return label;
           }
         }
       },
-      // Môžeme pridať aj nadpis grafu
-    //   title: {
-    //     display: true,
-    //     text: 'Rozdelenie výdavkov podľa kategórií',
-    //     font: { size: 16 }
-    //   }
     },
-    cutout: '60%', // Pre Doughnut graf - veľkosť "diery" v strede (%)
+    cutout: '65%', // Väčšia diera v strede
+    animation: {
+      animateScale: true, // Animácia zväčšenia pri načítaní
+      animateRotate: true // Animácia rotácie pri načítaní
+    }
   };
 
   return (
-    // Nastavíme výšku kontajnera pre graf
     <div style={{ position: 'relative', height: '300px', width: '100%' }}>
       <Doughnut data={data} options={options} />
     </div>

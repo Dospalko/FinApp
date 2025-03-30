@@ -1,10 +1,5 @@
 import React, { useState, useEffect } from 'react';
 
-// Zdroj príjmu ponecháme ako textové pole pre jednoduchosť
-// Ak by si chcel fixné zdroje, definuj ich tu ako pole:
-// const INCOME_SOURCES = ["Plat", "Brigáda", "Prenájom", "Dar", "Ostatné"];
-// const DEFAULT_SOURCE_VALUE = "";
-
 const IncomeForm = ({
     onIncomeAdd,
     onIncomeUpdate,
@@ -15,22 +10,19 @@ const IncomeForm = ({
 }) => {
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [source, setSource] = useState(''); // Pre textové pole
-  // const [source, setSource] = useState(DEFAULT_SOURCE_VALUE); // Pre select
+  const [source, setSource] = useState('');
   const [formError, setFormError] = useState(null);
 
   useEffect(() => {
     if (formMode === 'edit' && initialData) {
       setDescription(initialData.description || '');
       setAmount(initialData.amount?.toString() || '');
-      setSource(initialData.source || ''); // Pre textové pole
-      // setSource(initialData.source || DEFAULT_SOURCE_VALUE); // Pre select
+      setSource(initialData.source || '');
       setFormError(null);
     } else {
       setDescription('');
       setAmount('');
-      setSource(''); // Pre textové pole
-      // setSource(DEFAULT_SOURCE_VALUE); // Pre select
+      setSource('');
       setFormError(null);
     }
   }, [initialData, formMode]);
@@ -44,12 +36,10 @@ const IncomeForm = ({
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) { setFormError("Suma musí byť platné kladné číslo."); return; }
 
-    // const finalSource = source === DEFAULT_SOURCE_VALUE ? null : source; // Pre select
     const incomePayload = {
       description: description.trim(),
       amount: parsedAmount,
-      ...(source.trim() && { source: source.trim() }) // Pre textové pole
-      // ...(finalSource !== null && { source: finalSource }) // Pre select
+      ...(source.trim() && { source: source.trim() })
     };
 
     try {
@@ -60,8 +50,7 @@ const IncomeForm = ({
         await onIncomeAdd(incomePayload);
         setDescription('');
         setAmount('');
-        setSource(''); // Pre textové pole
-        // setSource(DEFAULT_SOURCE_VALUE); // Pre select
+        setSource('');
       }
     } catch (apiError) {
         const messages = apiError.response?.data?.messages;
@@ -85,45 +74,82 @@ const IncomeForm = ({
   const formTitle = isEditMode ? 'Upraviť príjem' : 'Pridať Nový Príjem';
 
   return (
-    <div className={`p-5 bg-white rounded-lg shadow border ${isEditMode ? 'border-green-400 ring-1 ring-green-200' : 'border-slate-200'}`}>
-      <h2 className="text-xl font-semibold mb-4 text-slate-800">{formTitle}</h2>
+    <div className={`p-5 bg-white rounded-xl shadow-lg border transition-all duration-300 ease-in-out ${isEditMode ? 'border-emerald-300 ring-2 ring-emerald-100' : 'border-slate-200 hover:shadow-md'}`}>
+      <h2 className="text-lg font-semibold mb-5 text-slate-800">{formTitle}</h2>
        {isEditMode && initialData?.description && (
-           <p className="text-sm text-gray-500 mb-3">Upravujete: <strong>{initialData.description}</strong> (+{initialData.amount?.toFixed(2)} €)</p>
+           <p className="text-sm text-slate-500 mb-4">Upravujete: <strong className="text-slate-700">{initialData.description}</strong> (+{initialData.amount?.toFixed(2)} €)</p>
        )}
-      <form onSubmit={handleSubmit} noValidate>
-        {formError && ( <div className="mb-4 p-3 text-sm text-red-800 bg-red-100 rounded-md border border-red-200" role="alert">{formError}</div> )}
+      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        {formError && (
+            <div className="p-3 text-sm text-red-800 bg-red-100 rounded-lg border border-red-200" role="alert">
+                {formError}
+            </div>
+         )}
 
-        <div className="mb-4">
-          <label htmlFor={isEditMode ? 'edit-income-desc' : 'add-income-desc'} className="block text-sm font-medium text-slate-700 mb-1">Popis <span className="text-red-500">*</span></label>
-          <input type="text" id={isEditMode ? 'edit-income-desc' : 'add-income-desc'} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Napr. Výplata, Predaj na Bazoši" className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" disabled={isProcessing} required />
+        <div>
+          <label htmlFor={isEditMode ? 'edit-income-desc' : 'add-income-desc'} className="block text-xs font-medium text-slate-600 mb-1">Popis <span className="text-red-500">*</span></label>
+          <input
+            type="text"
+            id={isEditMode ? 'edit-income-desc' : 'add-income-desc'}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Napr. Plat, Dividendy"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out disabled:bg-slate-50 disabled:text-slate-500"
+            disabled={isProcessing}
+            required
+          />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label htmlFor={isEditMode ? 'edit-income-amount' : 'add-income-amount'} className="block text-sm font-medium text-slate-700 mb-1">Suma (€) <span className="text-red-500">*</span></label>
-            <input type="number" id={isEditMode ? 'edit-income-amount' : 'add-income-amount'} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" step="0.01" min="0.01" className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" disabled={isProcessing} required/>
+            <label htmlFor={isEditMode ? 'edit-income-amount' : 'add-income-amount'} className="block text-xs font-medium text-slate-600 mb-1">Suma (€) <span className="text-red-500">*</span></label>
+            <input
+              type="number"
+              id={isEditMode ? 'edit-income-amount' : 'add-income-amount'}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+              step="0.01"
+              min="0.01"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out disabled:bg-slate-50 disabled:text-slate-500"
+              disabled={isProcessing}
+              required
+            />
           </div>
           <div>
-            <label htmlFor={isEditMode ? 'edit-income-source' : 'add-income-source'} className="block text-sm font-medium text-slate-700 mb-1">Zdroj (nepovinné)</label>
-            <input type="text" id={isEditMode ? 'edit-income-source' : 'add-income-source'} value={source} onChange={(e) => setSource(e.target.value)} placeholder="Napr. Zamestnávateľ, Klient" className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out" disabled={isProcessing}/>
-             {/* Alebo select, ak máš INCOME_SOURCES: */}
-             {/* <select id={isEditMode ? 'edit-income-source' : 'add-income-source'} value={source} onChange={(e) => setSource(e.target.value)} className="w-full ..." disabled={isProcessing}>
-                 <option value={DEFAULT_SOURCE_VALUE}>-- Vyberte zdroj --</option>
-                 {INCOME_SOURCES.map((src) => ( <option key={src} value={src}>{src}</option> ))}
-             </select> */}
+            <label htmlFor={isEditMode ? 'edit-income-source' : 'add-income-source'} className="block text-xs font-medium text-slate-600 mb-1">Zdroj (nepovinné)</label>
+            <input
+              type="text"
+              id={isEditMode ? 'edit-income-source' : 'add-income-source'}
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              placeholder="Napr. Zamestnávateľ, Klient"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-150 ease-in-out disabled:bg-slate-50 disabled:text-slate-500"
+              disabled={isProcessing}
+            />
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 mt-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-3 pt-3">
              {isEditMode && (
-                 <button type="button" onClick={onCancelEdit} disabled={isProcessing} className={`w-full sm:w-auto px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-md shadow-sm hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-400 transition duration-150 ease-in-out ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}>Zrušiť</button>
+                 <button
+                    type="button"
+                    onClick={onCancelEdit}
+                    disabled={isProcessing}
+                    className={`w-full sm:w-auto px-4 py-2 bg-slate-200 text-slate-700 font-semibold rounded-lg shadow-sm hover:bg-slate-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 transition duration-150 ease-in-out disabled:opacity-60 disabled:cursor-not-allowed`}
+                 >
+                   Zrušiť
+                 </button>
              )}
-             <button type="submit" className={`w-full sm:w-auto px-4 py-2.5 font-semibold rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ease-in-out text-white ${
+             <button
+                type="submit"
+                className={`w-full sm:w-auto px-5 py-2 font-semibold rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition duration-150 ease-in-out text-white ${
                   isEditMode
-                    ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' // Edit = Zelená
-                    : 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500' // Add = Smaragdová
-                } ${isProcessing ? 'opacity-60 cursor-not-allowed' : ''}`}
-               disabled={isProcessing}>
+                    ? 'bg-emerald-600 hover:bg-emerald-700 focus:ring-emerald-500' // Zelená pre edit
+                    : 'bg-emerald-500 hover:bg-emerald-600 focus:ring-emerald-400' // Svetlejšia zelená pre add
+                } disabled:opacity-60 disabled:cursor-not-allowed`}
+               disabled={isProcessing}
+             >
                {isProcessing ? (isEditMode ? 'Ukladám...' : 'Pridávam...') : submitButtonText}
              </button>
         </div>
