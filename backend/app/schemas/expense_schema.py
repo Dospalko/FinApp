@@ -18,7 +18,14 @@ class ExpenseSchema(ma.SQLAlchemyAutoSchema):
     )
     category = fields.String(required=False, allow_none=True, validate=validate.Length(max=50))
 
-# Inštancie schém
+    rule_category = fields.String(
+        required=False, # Nepovinné pri zadávaní
+        allow_none=True,
+        validate=validate.OneOf(['Needs', 'Wants', 'Savings'], error="Neplatná kategória pravidla (Needs, Wants, Savings)")
+    )
+    date_created = fields.DateTime(dump_only=True, format='iso') # Vraciame pôvodné pole pre dátum
+
 expense_schema = ExpenseSchema()
 expenses_schema = ExpenseSchema(many=True)
+# Pridáme rule_category aj do vstupu, ale id a date_created vylúčime
 expense_input_schema = ExpenseSchema(exclude=("id", "date_created"))

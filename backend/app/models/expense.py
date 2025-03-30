@@ -10,6 +10,7 @@ class Expense(db.Model):
     amount = db.Column(db.Float, nullable=False)
     category = db.Column(db.String(50), nullable=True, default='Nezaradené')
     date_created = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-
+    rule_category = db.Column(db.String(10), nullable=True)
+    
     def __repr__(self):
         return f'<Expense {self.id}: {self.description} ({self.amount})>'

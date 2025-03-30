@@ -2,3 +2,4 @@
 from .expense_service import ExpenseService, ExpenseNotFoundError, ExpenseServiceError
 # Pridaný import pre Income
 from .income_service import IncomeService, IncomeNotFoundError, IncomeServiceError
+from .budget_service import BudgetService, BudgetServiceError, BudgetNotFoundError
