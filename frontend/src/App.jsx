@@ -17,7 +17,7 @@ import BudgetStatus from './components/Budgeting/BudgetStatus';
 import Rule503020Status from './components/Budgeting/Rule503020Status';
 import Tabs from './components/Shared/Tabs';
 import DateSelector from './components/Shared/DateSelector';
-
+import ReportGenerator from './components/Reports/ReportGenerator';
 function App() {
     const { pingMessage, showPing } = usePing();
     const expensesHook = useExpenses();
@@ -175,6 +175,15 @@ function App() {
                                     selectedYear={selectedYear}
                                     onMonthChange={handleMonthChange}
                                     onYearChange={handleYearChange}
+                                />
+                                 <ReportGenerator
+                                    selectedMonth={selectedMonth}
+                                    selectedYear={selectedYear}
+                                    incomes={incomesHook.incomes}     // Poskytni dáta príjmov
+                                    expenses={expensesHook.expenses} // Poskytni dáta výdavkov
+                                    totalIncome={totalIncome}        // Poskytni súhrny
+                                    totalExpenses={totalExpenses}
+                                    balance={balance}
                                 />
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                                     <BudgetStatus selectedYear={selectedYear} selectedMonth={selectedMonth} />

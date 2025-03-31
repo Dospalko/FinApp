@@ -1,9 +1,6 @@
 # backend/app/services/expense_service.py
 from ..database import db # Opravený relatívny import
 from ..models.expense import Expense # Opravený relatívny import
-# import logging
-
-# logger = logging.getLogger(__name__)
 
 class ExpenseServiceError(Exception):
     """Vlastná výnimka pre chyby v servisnej vrstve."""
@@ -45,25 +42,31 @@ class ExpenseService:
             raise ExpenseServiceError("Nepodarilo sa pridať výdavok do databázy.") from e
     
     @staticmethod
-    def update_expense(expense_id, update_payload): # update_payload je objekt Expense
+    def update_expense(expense_id, update_payload): # update_payload je objekt Expense zo schémy
+        """Aktualizuje existujúci výdavok podľa ID."""
         try:
             expense_to_update = ExpenseService.get_expense_by_id(expense_id)
+
+            # Aktualizuj polia z payloadu
             expense_to_update.description = update_payload.description
             expense_to_update.amount = update_payload.amount
-            expense_to_update.date = update_payload.date
-            # Pridané prenos rule_category
-            if hasattr(update_payload, 'rule_category'):
-                expense_to_update.rule_category = update_payload.rule_category
+
+            # === ODSTRÁNENÝ RIADOK ===
+            # expense_to_update.date = update_payload.date # Odstrániť, 'date' neexistuje a 'date_created' nemeníme
+            # =========================
+
+            # Spracuj category a rule_category, ak existujú v payloade
             if hasattr(update_payload, 'category'):
                  expense_to_update.category = update_payload.category
+            if hasattr(update_payload, 'rule_category'):
+                expense_to_update.rule_category = update_payload.rule_category
+
             db.session.commit()
             return expense_to_update
         except ExpenseNotFoundError:
-             # Ak get_expense_by_id vyvolal chybu
              raise
         except Exception as e:
-            db.session.rollback() # Rollback pri akejkoľvek chybe počas update
-            # logger.error(f"Database error updating expense ID {expense_id}: {e}", exc_info=True)
+            db.session.rollback()
             print(f"Database error updating expense ID {expense_id}: {e}")
             raise ExpenseServiceError(f"Nepodarilo sa aktualizovať výdavok s ID {expense_id}.") from e
     @staticmethod

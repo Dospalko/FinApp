@@ -67,7 +67,7 @@ const ExpenseItem = ({ expense, onDelete, onEdit, isProcessing }) => {
                 <span className="text-xs text-slate-500 block mt-0.5">
                     {formatDateForDisplay(expense.date_created)}
                     {/* Pridanie kategórie sem, ak nezobrazujeme ikonu */}
-                     {/* {expense.category && expense.category !== 'Nezaradené' && ` • ${expense.category}`} */}
+                     {expense.category && expense.category !== 'Nezaradené' && ` • ${expense.category}`} 
                 </span>
             </div>
 

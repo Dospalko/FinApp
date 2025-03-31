@@ -93,7 +93,6 @@ class BudgetService:
 
     @staticmethod
     def get_50_30_20_status(year, month, total_income):
-         """Vráti stav čerpania podľa pravidla 50/30/20."""
          # Základný objekt pre prípad nulového príjmu alebo chyby
          default_status = {
                  'needs': {'budgeted_percent': 50, 'spent_percent': 0, 'spent_amount': 0},
@@ -108,7 +107,6 @@ class BudgetService:
 
          try:
              # Získaj sumy výdavkov pre každú 'rule_category'
-             # === POUŽITIE SPRÁVNEHO STĹPCA 'date_created' ===
              spending_by_rule = db.session.query(
                  Expense.rule_category,
                  func.sum(Expense.amount).label('total_spent')
@@ -116,7 +114,6 @@ class BudgetService:
                  extract('year', Expense.date_created) == year, # <- Použi date_created
                  extract('month', Expense.date_created) == month # <- Použi date_created
              ).group_by(Expense.rule_category).all()
-             # === KONIEC ÚPRAVY ===
 
              spent_map = {rule: total for rule, total in spending_by_rule if rule}
              unclassified_spent = sum(total for rule, total in spending_by_rule if not rule)
