@@ -32,7 +32,9 @@ class Config:
         'sqlite:///' + os.path.join(instance_path, 'tracker.db')
 
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'velmi-tajny-jwt-kluc-zmen-v-produkcii!'
+    # Voliteľné: Ako dlho má token platiť (napr. 1 hodina)
+    JWT_ACCESS_TOKEN_EXPIRES_SECONDS = int(os.environ.get('JWT_ACCESS_TOKEN_EXPIRES_SECONDS', 3600)) # 1 
     # Zaistenie existencie 'instance' priečinka (Flask to vie urobiť sám, ale istota je istota)
     if not os.path.exists(instance_path):
         try:

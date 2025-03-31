@@ -1,107 +1,71 @@
-# backend/app/services/expense_service.py
-from ..database import db # Opravený relatívny import
-from ..models.expense import Expense # Opravený relatívny import
+from ..database import db
+from ..models import Expense
 
-class ExpenseServiceError(Exception):
-    """Vlastná výnimka pre chyby v servisnej vrstve."""
-    pass
-
-class ExpenseNotFoundError(ExpenseServiceError):
-    """Výnimka pre prípad, že výdavok nebol nájdený."""
-    pass
+class ExpenseServiceError(Exception): pass
+class ExpenseNotFoundError(ExpenseServiceError): pass
 
 class ExpenseService:
     @staticmethod
-    def get_all_expenses():
-        """Získa všetky výdavky zoradené podľa dátumu."""
+    def get_all_expenses(user_id):
         try:
-            return Expense.query.order_by(Expense.date_created.desc()).all()
+            return Expense.query.filter_by(user_id=user_id).order_by(Expense.date_created.desc()).all()
         except Exception as e:
-            print(f"Database error retrieving expenses: {e}")
-            raise ExpenseServiceError("Nepodarilo sa načítať výdavky z databázy.") from e
+            print(f"DB error getting expenses for user {user_id}: {e}")
+            raise ExpenseServiceError("Nepodarilo sa načítať výdavky.") from e
 
     @staticmethod
-    def add_new_expense(new_expense_object): # Premenuj parameter pre jasnoť
-        """
-        Pridá nový výdavok (už ako objekt Expense) do databázy.
-        Predpokladá, že objekt bol vytvorený a validovaný schémou.
-        """
-        # Objekt už máme, nemusíme ho vytvárať znova
-        # new_expense = Expense(...) # <<< TOTO ODSTRÁNIME
-
+    def add_new_expense(expense_object, user_id):
+        expense_object.user_id = user_id
         try:
-            # Priamo pridáme existujúci objekt do session
-            db.session.add(new_expense_object)
+            db.session.add(expense_object)
             db.session.commit()
-            # logger.info(f"Expense added: ID={new_expense_object.id}")
-            return new_expense_object # Vrátime uložený objekt (teraz už má aj ID)
+            return expense_object
         except Exception as e:
             db.session.rollback()
-            # logger.error(f"Database error adding expense: {e}", exc_info=True)
-            print(f"Database error adding expense: {e}")
-            raise ExpenseServiceError("Nepodarilo sa pridať výdavok do databázy.") from e
-    
-    @staticmethod
-    def update_expense(expense_id, update_payload): # update_payload je objekt Expense zo schémy
-        """Aktualizuje existujúci výdavok podľa ID."""
-        try:
-            expense_to_update = ExpenseService.get_expense_by_id(expense_id)
+            print(f"DB error adding expense for user {user_id}: {e}")
+            raise ExpenseServiceError("Nepodarilo sa pridať výdavok.") from e
 
-            # Aktualizuj polia z payloadu
+    @staticmethod
+    def get_expense_by_id(expense_id, user_id):
+        try:
+            expense = db.session.get(Expense, expense_id)
+            if not expense:
+                raise ExpenseNotFoundError(f"Výdavok s ID {expense_id} nebol nájdený.")
+            if expense.user_id != user_id:
+                raise ExpenseNotFoundError(f"Výdavok s ID {expense_id} nebol nájdený (pre tohto používateľa).")
+            return expense
+        except ExpenseNotFoundError: raise
+        except Exception as e:
+            print(f"DB error retrieving expense {expense_id} for user {user_id}: {e}")
+            raise ExpenseServiceError("Chyba pri načítaní výdavku.") from e
+
+    @staticmethod
+    def update_expense(expense_id, update_payload, user_id):
+        try:
+            expense_to_update = ExpenseService.get_expense_by_id(expense_id, user_id)
             expense_to_update.description = update_payload.description
             expense_to_update.amount = update_payload.amount
-
-            # === ODSTRÁNENÝ RIADOK ===
-            # expense_to_update.date = update_payload.date # Odstrániť, 'date' neexistuje a 'date_created' nemeníme
-            # =========================
-
-            # Spracuj category a rule_category, ak existujú v payloade
             if hasattr(update_payload, 'category'):
                  expense_to_update.category = update_payload.category
             if hasattr(update_payload, 'rule_category'):
                 expense_to_update.rule_category = update_payload.rule_category
-
             db.session.commit()
             return expense_to_update
-        except ExpenseNotFoundError:
-             raise
+        except ExpenseNotFoundError: raise
         except Exception as e:
             db.session.rollback()
-            print(f"Database error updating expense ID {expense_id}: {e}")
+            print(f"DB error updating expense {expense_id} for user {user_id}: {e}")
             raise ExpenseServiceError(f"Nepodarilo sa aktualizovať výdavok s ID {expense_id}.") from e
+
     @staticmethod
-    def delete_expense_by_id(expense_id):
-        """Vymaže výdavok podľa ID."""
+    def delete_expense_by_id(expense_id, user_id):
         try:
-            # Nájdi výdavok (vyvolá chybu ak nenájde, čo je OK)
-            expense_to_delete = ExpenseService.get_expense_by_id(expense_id)
-            # Vymaž objekt zo session
+            expense_to_delete = ExpenseService.get_expense_by_id(expense_id, user_id)
             db.session.delete(expense_to_delete)
-            # Potvrď zmeny v DB
             db.session.commit()
-            # logger.info(f"Expense deleted: ID={expense_id}")
-            return True # Signalizuj úspech
-        except ExpenseNotFoundError:
-             # Ak get_expense_by_id vyvolal chybu, len ju posielame ďalej
-             raise
+            return True
+        except ExpenseNotFoundError: raise
         except Exception as e:
-            db.session.rollback() # Dôležitý rollback pri chybe
-            # logger.error(f"Database error deleting expense ID {expense_id}: {e}", exc_info=True)
-            print(f"Database error deleting expense ID {expense_id}: {e}")
+            db.session.rollback()
+            print(f"DB error deleting expense {expense_id} for user {user_id}: {e}")
             raise ExpenseServiceError(f"Nepodarilo sa vymazať výdavok s ID {expense_id}.") from e
-    @staticmethod
-    def get_expense_by_id(expense_id):
-         """Získa jeden výdavok podľa ID."""
-         try:
-             # Použi get_or_404 pre automatické vrátenie 404 ak nenájde
-             # expense = Expense.query.get_or_404(expense_id)
-             # Alebo manuálne pre vlastnú výnimku:
-             expense = db.session.get(Expense, expense_id) # Preferovaný spôsob pre get by primary key v SQLAlchemy 1.4+
-             if not expense:
-                 raise ExpenseNotFoundError(f"Výdavok s ID {expense_id} nebol nájdený.")
-             return expense
-         except ExpenseNotFoundError:
-             raise
-         except Exception as e:
-             print(f"Database error retrieving expense ID {expense_id}: {e}")
-             raise ExpenseServiceError(f"Chyba pri načítaní výdavku s ID {expense_id}.") from e

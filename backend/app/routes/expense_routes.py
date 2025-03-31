@@ -1,106 +1,79 @@
-# backend/app/routes/expense_routes.py
-from flask import Blueprint, request, jsonify
-from ..schemas import expense_schema, expenses_schema, expense_input_schema # Opravený import
-from ..services import ExpenseService, ExpenseNotFoundError, ExpenseServiceError # Opravený import
+from flask import Blueprint, request, jsonify, g
+from ..schemas import expense_schema, expenses_schema, expense_input_schema
+from ..services import ExpenseService, ExpenseNotFoundError, ExpenseServiceError
+from ..utils.auth_utils import token_required
 from marshmallow import ValidationError
 
-expense_bp = Blueprint('expenses', __name__) # Bude pod /api
+expense_bp = Blueprint('expenses', __name__)
 
-# --- PRIDANÝ PING SEM ---
 @expense_bp.route('/ping', methods=['GET'])
 def ping_api_route():
-     """API endpoint na overenie dostupnosti backendu."""
      return jsonify({"message": "Finance tracker API is online!"})
-# --- KONIEC PING ---
 
 @expense_bp.route('/expenses', methods=['GET'])
+@token_required
 def get_expenses_route():
-    """Získa zoznam všetkých výdavkov."""
+    user_id = g.current_user.id
     try:
-        all_expenses = ExpenseService.get_all_expenses()
-        return jsonify(expenses_schema.dump(all_expenses)), 200
-    except ExpenseServiceError as e:
-         return jsonify({"error": str(e)}), 500
+        user_expenses = ExpenseService.get_all_expenses(user_id=user_id)
+        return jsonify(expenses_schema.dump(user_expenses)), 200
+    except ExpenseServiceError as e: return jsonify({"error": str(e)}), 500
     except Exception as e:
-         print(f"Unexpected error in get_expenses_route: {e}")
-         return jsonify({"error": "Internal server error"}), 500
+         print(f"Unexpected error in get_expenses_route: {e}"); return jsonify({"error": "Internal server error"}), 500
 
 @expense_bp.route('/expenses', methods=['POST'])
+@token_required
 def add_expense_route():
-    """Pridá nový výdavok."""
+    user_id = g.current_user.id
     json_data = request.get_json()
-    if not json_data:
-        return jsonify({"error": "No input data provided"}), 400
+    if not json_data: return jsonify({"error": "No input data"}), 400
     try:
-        expense_data = expense_input_schema.load(json_data)
-    except ValidationError as err:
-        return jsonify({"error": "Invalid input data", "messages": err.messages}), 400
+        expense_data_obj = expense_input_schema.load(json_data)
+    except ValidationError as err: return jsonify({"error": "Invalid input", "messages": err.messages}), 400
     try:
-        new_expense = ExpenseService.add_new_expense(expense_data)
+        new_expense = ExpenseService.add_new_expense(expense_data_obj, user_id=user_id)
         return jsonify(expense_schema.dump(new_expense)), 201
-    except ExpenseServiceError as e:
-         return jsonify({"error": str(e)}), 500
+    except ExpenseServiceError as e: return jsonify({"error": str(e)}), 500
     except Exception as e:
-         print(f"Unexpected error in add_expense_route: {e}")
-         return jsonify({"error": "Internal server error"}), 500
+         print(f"Unexpected error in add_expense_route: {e}"); return jsonify({"error": "Internal server error"}), 500
 
 @expense_bp.route('/expenses/<int:expense_id>', methods=['GET'])
+@token_required
 def get_single_expense_route(expense_id):
-    """Získa jeden výdavok podľa ID."""
+    user_id = g.current_user.id
     try:
-        expense = ExpenseService.get_expense_by_id(expense_id)
+        expense = ExpenseService.get_expense_by_id(expense_id, user_id=user_id)
         return jsonify(expense_schema.dump(expense)), 200
-    except ExpenseNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except ExpenseServiceError as e:
-         return jsonify({"error": str(e)}), 500
+    except ExpenseNotFoundError as e: return jsonify({"error": str(e)}), 404
+    except ExpenseServiceError as e: return jsonify({"error": str(e)}), 500
     except Exception as e:
-         print(f"Unexpected error in get_single_expense_route: {e}")
-         return jsonify({"error": "Internal server error"}), 500
-    
-@expense_bp.route('/expenses/<int:expense_id>', methods=['DELETE'])
-def delete_expense_route(expense_id):
-    """Vymaže výdavok podľa ID."""
-    try:
-        # Zavolaj servisnú metódu na vymazanie
-        ExpenseService.delete_expense_by_id(expense_id)
-        # Ak prebehlo bez chyby, vráti prázdnu odpoveď s kódom 204 No Content
-        return '', 204
-    except ExpenseNotFoundError as e:
-        # Ak služba hlási, že ID neexistuje
-        return jsonify({"error": str(e)}), 404
-    except ExpenseServiceError as e:
-        # Iná chyba zo služby
-        return jsonify({"error": str(e)}), 500
-    except Exception as e:
-         # Neočakávaná chyba
-         print(f"Unexpected error in delete_expense_route: {e}")
-         return jsonify({"error": "Internal server error"}), 500
-    
+         print(f"Unexpected error in get_single_expense_route: {e}"); return jsonify({"error": "Internal server error"}), 500
 
 @expense_bp.route('/expenses/<int:expense_id>', methods=['PUT'])
+@token_required
 def update_expense_route(expense_id):
-    """Aktualizuje existujúci výdavok podľa ID."""
+    user_id = g.current_user.id
     json_data = request.get_json()
-    if not json_data:
-        return jsonify({"error": "No input data provided"}), 400
-
+    if not json_data: return jsonify({"error": "No input data"}), 400
     try:
-        # Validácia vstupných dát - použijeme rovnakú schému ako pre POST
-        # Schéma zabezpečí, že description a amount sú prítomné a validné
         update_payload = expense_input_schema.load(json_data)
-    except ValidationError as err:
-        return jsonify({"error": "Invalid input data", "messages": err.messages}), 400
-
+    except ValidationError as err: return jsonify({"error": "Invalid input", "messages": err.messages}), 400
     try:
-        # Zavolaj servisnú metódu na aktualizáciu
-        updated_expense = ExpenseService.update_expense(expense_id, update_payload)
-        # Vráti serializovaný aktualizovaný objekt
-        return jsonify(expense_schema.dump(updated_expense)), 200 # HTTP 200 OK
-    except ExpenseNotFoundError as e:
-        return jsonify({"error": str(e)}), 404
-    except ExpenseServiceError as e:
-        return jsonify({"error": str(e)}), 500
+        updated_expense = ExpenseService.update_expense(expense_id, update_payload, user_id=user_id)
+        return jsonify(expense_schema.dump(updated_expense)), 200
+    except ExpenseNotFoundError as e: return jsonify({"error": str(e)}), 404
+    except ExpenseServiceError as e: return jsonify({"error": str(e)}), 500
     except Exception as e:
-         print(f"Unexpected error in update_expense_route: {e}")
-         return jsonify({"error": "Internal server error"}), 500
+         print(f"Unexpected error in update_expense_route: {e}"); return jsonify({"error": "Internal server error"}), 500
+
+@expense_bp.route('/expenses/<int:expense_id>', methods=['DELETE'])
+@token_required
+def delete_expense_route(expense_id):
+    user_id = g.current_user.id
+    try:
+        ExpenseService.delete_expense_by_id(expense_id, user_id=user_id)
+        return '', 204
+    except ExpenseNotFoundError as e: return jsonify({"error": str(e)}), 404
+    except ExpenseServiceError as e: return jsonify({"error": str(e)}), 500
+    except Exception as e:
+         print(f"Unexpected error in delete_expense_route: {e}"); return jsonify({"error": "Internal server error"}), 500

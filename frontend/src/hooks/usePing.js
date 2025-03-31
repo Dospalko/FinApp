@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { pingBackend } from '../api/expenseApi'; // Alebo z iného API súboru
+import { pingApi } from '../api/expenseApi'; // Alebo z iného API súboru
 
 export function usePing(autoHideDelay = 5000) {
     const [pingMessage, setPingMessage] = useState("Testujem spojenie s backendom...");
@@ -9,7 +9,7 @@ export function usePing(autoHideDelay = 5000) {
         let isMounted = true; // Pre cleanup
         let timer;
 
-        pingBackend()
+        pingApi()
             .then(data => {
                 if (isMounted) setPingMessage(data.message || "Backend je pripojený.");
             })
