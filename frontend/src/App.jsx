@@ -1,27 +1,22 @@
-// frontend/src/App.jsx
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Context & Auth
 import { useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Hooks
 import { usePing } from './hooks/usePing';
 import { useExpenses } from './hooks/useExpenses';
 import { useIncomes } from './hooks/useIncomes';
 
-// Layout Components
 import Header from './components/Layout/Header';
 import Footer from './components/Layout/Footer';
 
-// Page Components
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import ProfilePage from './pages/ProfilePage';
 import NotFoundPage from './pages/NotFoundPage';
 
-// Dashboard Components
 import SummarySection from './components/Summary/SummarySection';
 import ExpensesSection from './components/Expenses/ExpensesSection';
 import IncomesSection from './components/Incomes/IncomesSection';
@@ -32,10 +27,7 @@ import Tabs from './components/Shared/Tabs';
 import DateSelector from './components/Shared/DateSelector';
 import ReportGenerator from './components/Reports/ReportGenerator';
 
-
-// --- Komponent pre Obsah Dashboardu ---
 const DashboardContent = () => {
-    const { pingMessage, showPing } = usePing();
     const expensesHook = useExpenses();
     const incomesHook = useIncomes();
     const [processingItem, setProcessingItem] = useState(null);
@@ -111,80 +103,87 @@ const DashboardContent = () => {
     }), []);
 
     return (
-        <div className="min-h-screen bg-slate-100 font-sans text-gray-800 flex flex-col">
-             <div className="container mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8 flex-grow">
-                <Header pingMessage={pingMessage} showPing={showPing} />
-                <SummarySection
-                    totalIncome={totalIncome}
-                    totalExpenses={totalExpenses}
-                    balance={balance}
-                    isExpensesLoading={expensesHook.isLoading}
-                    isIncomesLoading={incomesHook.isLoading}
-                />
-                <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
-                <AnimatePresence mode='wait'>
-                    <motion.div
-                        key={activeTab}
-                        variants={tabContentVariants}
-                        initial="hidden" animate="visible" exit="exit"
-                        className="mt-6 overflow-hidden"
-                    >
-                        {activeTab === 'expenses' && (
-                            <ExpensesSection
-                                expensesHook={expensesHook}
-                                processingItem={processingItem}
-                                onAddExpense={handleAddExpense}
-                                onUpdateExpense={handleUpdateExpense}
-                                onDeleteExpense={handleDeleteExpense}
+        <>
+            <SummarySection
+                totalIncome={totalIncome}
+                totalExpenses={totalExpenses}
+                balance={balance}
+                isExpensesLoading={expensesHook.isLoading}
+                isIncomesLoading={incomesHook.isLoading}
+            />
+            <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
+            <AnimatePresence mode='wait'>
+                <motion.div
+                    key={activeTab}
+                    variants={tabContentVariants}
+                    initial="hidden" animate="visible" exit="exit"
+                    className="mt-6 overflow-hidden"
+                >
+                    {activeTab === 'expenses' && (
+                        <ExpensesSection
+                            expensesHook={expensesHook}
+                            processingItem={processingItem}
+                            onAddExpense={handleAddExpense}
+                            onUpdateExpense={handleUpdateExpense}
+                            onDeleteExpense={handleDeleteExpense}
+                        />
+                    )}
+                    {activeTab === 'incomes' && (
+                        <IncomesSection
+                            incomesHook={incomesHook}
+                            processingItem={processingItem}
+                            onAddIncome={handleAddIncome}
+                            onUpdateIncome={handleUpdateIncome}
+                            onDeleteIncome={handleDeleteIncome}
+                        />
+                    )}
+                    {activeTab === 'budgets' && (
+                        <div className="space-y-8">
+                            <DateSelector
+                                selectedMonth={selectedMonth}
+                                selectedYear={selectedYear}
+                                onMonthChange={handleMonthChange}
+                                onYearChange={handleYearChange}
                             />
-                        )}
-                        {activeTab === 'incomes' && (
-                            <IncomesSection
-                                incomesHook={incomesHook}
-                                processingItem={processingItem}
-                                onAddIncome={handleAddIncome}
-                                onUpdateIncome={handleUpdateIncome}
-                                onDeleteIncome={handleDeleteIncome}
+                            <ReportGenerator
+                                selectedMonth={selectedMonth}
+                                selectedYear={selectedYear}
+                                incomes={incomesHook.incomes}
+                                expenses={expensesHook.expenses}
+                                totalIncome={totalIncome}
+                                totalExpenses={totalExpenses}
+                                balance={balance}
                             />
-                        )}
-                        {activeTab === 'budgets' && (
-                            <div className="space-y-8">
-                                <DateSelector
-                                    selectedMonth={selectedMonth}
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                                <BudgetStatus selectedYear={selectedYear} selectedMonth={selectedMonth} />
+                                <Rule503020Status selectedYear={selectedYear} selectedMonth={selectedMonth} />
+                                <BudgetSetup
                                     selectedYear={selectedYear}
-                                    onMonthChange={handleMonthChange}
-                                    onYearChange={handleYearChange}
-                                />
-                                <ReportGenerator
                                     selectedMonth={selectedMonth}
-                                    selectedYear={selectedYear}
-                                    incomes={incomesHook.incomes}
-                                    expenses={expensesHook.expenses}
-                                    totalIncome={totalIncome}
-                                    totalExpenses={totalExpenses}
-                                    balance={balance}
+                                    allExpenseCategories={expensesHook.availableCategories}
                                 />
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                                    <BudgetStatus selectedYear={selectedYear} selectedMonth={selectedMonth} />
-                                    <Rule503020Status selectedYear={selectedYear} selectedMonth={selectedMonth} />
-                                    <BudgetSetup
-                                        selectedYear={selectedYear}
-                                        selectedMonth={selectedMonth}
-                                        allExpenseCategories={expensesHook.availableCategories}
-                                    />
-                                </div>
                             </div>
-                        )}
-                    </motion.div>
-                </AnimatePresence>
-            </div>
+                        </div>
+                    )}
+                </motion.div>
+            </AnimatePresence>
+        </>
+    );
+};
+
+const AppLayout = ({ children }) => {
+    const { pingMessage, showPing } = usePing();
+    return (
+        <div className="min-h-screen bg-slate-100 font-sans text-gray-800 flex flex-col">
+            <Header pingMessage={pingMessage} showPing={showPing} />
+            <main className="container mx-auto px-4 py-6 sm:px-6 sm:py-8 lg:px-8 flex-grow">
+                {children}
+            </main>
             <Footer />
         </div>
     );
 };
 
-
-// --- Hlavný App Komponent s Routovaním ---
 function App() {
     const { isAuthenticated } = useAuth();
 
@@ -192,14 +191,28 @@ function App() {
         <Routes>
             <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
             <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
+
             <Route
                 path="/"
                 element={
                     <ProtectedRoute>
-                        <DashboardContent />
+                        <AppLayout>
+                            <DashboardContent />
+                        </AppLayout>
                     </ProtectedRoute>
                 }
             />
+             <Route
+                path="/profile"
+                element={
+                    <ProtectedRoute>
+                        <AppLayout>
+                            <ProfilePage />
+                        </AppLayout>
+                    </ProtectedRoute>
+                }
+            />
+
             <Route path="*" element={<NotFoundPage />} />
         </Routes>
     );

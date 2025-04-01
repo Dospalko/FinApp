@@ -1,47 +1,54 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext'; // Importuj hook
+import { useAuth } from '../../contexts/AuthContext';
+import PingIndicator from '../UI/PingIndicator';
 
-// Predpokladáme, že tento komponent dostáva pingMessage a showPing ako props
 const Header = ({ pingMessage, showPing }) => {
-    const { user, logout, isAuthenticated } = useAuth(); // Získaj stav a funkciu logout
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
 
     const handleLogout = () => {
         logout();
-        navigate('/login', { replace: true }); // Presmeruj po odhlásení
+        navigate('/login');
     };
 
     return (
-        <header className="mb-6 pb-4">
-            <div className="flex justify-between items-center mb-2">
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
-                    Finance Tracker
-                </h1>
-                {/* Zobrazí info o userovi a logout tlačidlo ak je prihlásený */}
-                {isAuthenticated && user ? (
-                    <div className="flex items-center space-x-3">
-                         <span className="text-sm text-gray-600 hidden sm:inline">
-                             {user.username}
-                         </span>
-                         <button
-                            onClick={handleLogout}
-                            className="btn-danger-outline text-xs px-2 py-1"
-                         >
-                            Odhlásiť sa
-                         </button>
-                     </div>
-                ) : (
-                    // Ak nie je prihlásený, môžeš zobraziť linky na login/register
-                    // Alebo nič, ak sú to samostatné stránky
-                    <div></div>
-                )}
+        <header className="bg-white shadow-md mb-6 sm:mb-8">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex justify-between items-center py-4">
+                    <Link to="/" className="text-2xl font-bold text-indigo-600 hover:text-indigo-800 transition duration-150 ease-in-out">
+                        FinApp
+                    </Link>
+
+                    <div className="flex items-center space-x-4">
+                        {showPing && <PingIndicator message={pingMessage} />}
+                        {user ? (
+                            <>
+                                <span className="text-sm text-gray-600 hidden sm:inline">Vitaj, {user.username}!</span>
+                                <Link
+                                    to="/profile"
+                                    className="text-sm font-medium text-gray-500 hover:text-gray-700 transition duration-150 ease-in-out"
+                                >
+                                    Profil
+                                </Link>
+                                <button
+                                    onClick={handleLogout}
+                                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500 transition duration-150 ease-in-out"
+                                >
+                                    Odhlásiť sa
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link to="/login" className="text-sm font-medium text-gray-500 hover:text-gray-700">Prihlásiť sa</Link>
+                                <Link to="/register" className="ml-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    Registrovať
+                                </Link>
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
-            {showPing && (
-                <p className={`text-center text-xs p-1 rounded ${pingMessage?.includes('nedostupný') || pingMessage?.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
-                    {pingMessage || 'Načítavam stav API...'}
-                </p>
-            )}
         </header>
     );
 };
