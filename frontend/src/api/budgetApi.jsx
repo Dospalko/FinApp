@@ -1,34 +1,47 @@
+// frontend/src/api/budgetApi.js
 import apiClient from './axiosConfig';
 
-// Získa rozpočty pre daný mesiac/rok
-export const getBudgets = async (year, month) => {
-  try {
-    const response = await apiClient.get('/budgets', { params: { year, month } });
-    return response.data;
-  } catch (error) { console.error("API: getBudgets failed:", error.response?.data || error.message); throw error; }
-};
-
-// Nastaví alebo aktualizuje rozpočet pre kategóriu/mesiac/rok
+// POST /api/budgets - Pre upsert rozpočtu (cez slider)
 export const setBudget = async (budgetData) => {
-  // budgetData = { category: '...', amount: ..., month: ..., year: ... }
-  try {
-    const response = await apiClient.post('/budgets', budgetData);
-    return response.data;
-  } catch (error) { console.error("API: setBudget failed:", error.response?.data || error.message); throw error; }
-};
-
-// Získa stav čerpania rozpočtov
-export const getBudgetStatus = async (year, month) => {
-  try {
-    const response = await apiClient.get('/budget-status', { params: { year, month } });
-    return response.data;
-  } catch (error) { console.error("API: getBudgetStatus failed:", error.response?.data || error.message); throw error; }
-};
-
-// Získa stav pravidla 50/30/20
-export const getRuleStatus = async (year, month) => {
+    // budgetData = { category: "...", amount: 120.00, month: 5, year: 2024 }
     try {
-      const response = await apiClient.get('/budget-rules-status', { params: { year, month } });
-      return response.data;
-    } catch (error) { console.error("API: getBudgetRulesStatus failed:", error.response?.data || error.message); throw error; }
-  };
+        const response = await apiClient.post('/budgets', budgetData);
+        return response.data;
+    } catch (error) {
+        console.error("API Error setting budget:", error.response?.data || error.message);
+        throw error;
+    }
+};
+
+// GET /api/budgets/status?year=YYYY&month=MM
+export const getBudgetStatus = async (year, month) => {
+    try {
+        const response = await apiClient.get('/budgets/status', { params: { year, month } });
+        return response.data;
+    } catch (error) {
+        console.error("API Error fetching budget status:", error.response?.data || error.message);
+        throw error;
+    }
+};
+
+// GET /api/budgets/rules-status?year=YYYY&month=MM
+export const getRuleStatus = async (year, month) => {
+     try {
+        const response = await apiClient.get('/budgets/rules-status', { params: { year, month } });
+        return response.data;
+    } catch (error) {
+        console.error("API Error fetching rule status:", error.response?.data || error.message);
+        throw error;
+    }
+};
+
+// GET /api/budgets?year=YYYY&month=MM (Ak by si ho ešte niekde potreboval)
+export const getBudgets = async (year, month) => {
+     try {
+        const response = await apiClient.get('/budgets', { params: { year, month } });
+        return response.data;
+    } catch (error) {
+        console.error("API Error fetching budgets:", error.response?.data || error.message);
+        throw error;
+    }
+};

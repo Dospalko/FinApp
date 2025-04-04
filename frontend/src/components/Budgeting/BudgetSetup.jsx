@@ -1,158 +1,266 @@
-// src/components/Budgeting/BudgetSetup.jsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { getBudgets, setBudget } from '../../api/budgetApi'; // Import API funkcií
+import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
+import { getBudgets, setBudget } from '../../api/budgetApi';
+import Spinner from '../UI/Spinner';
+import Alert from '../UI/Alert';
 
-// Predpokladáme import kategórií, napr. z ExpenseForm alebo zdieľaného súboru
-const CATEGORIES = [
-  "Potraviny", "Bývanie", "Doprava", "Zábava", "Oblečenie",
-  "Zdravie", "Vzdelávanie", "Reštaurácie", "Úspory/Investície", "Ostatné"
+// --- DEFINÍCIA ZÁKLADNÝCH KATEGÓRIÍ ---
+// Tento zoznam môžete upraviť podľa potreby
+const DEFAULT_BUDGET_CATEGORIES = [
+  "Potraviny",
+  "Bývanie", // Náklady na bývanie (nájom, hypotéka, energie)
+  "Doprava", // (Auto, MHD, palivo)
+  "Účty a Služby", // (Telefón, internet, poistky, predplatné)
+  "Osobné výdavky", // (Hygiena, kozmetika)
+  "Zdravie", // (Lekár, lieky, doplnky)
+  "Oblečenie",
+  "Reštaurácie a Kaviarne",
+  "Zábava a Voľný čas", // (Kultúra, šport, koníčky)
+  "Vzdelávanie",
+  "Darčeky a Dobročinnosť",
+  "Dovolenka",
+  "Úspory a Investície", // Ak chcete sledovať plánované úspory ako rozpočet
+  "Ostatné",
 ];
+// -------------------------------------
 
-const BudgetSetup = ({ selectedYear, selectedMonth }) => {
-  const [budgets, setBudgets] = useState({}); // Objekt: { categoryName: amount }
-  const [inputs, setInputs] = useState({});   // Objekt na držanie hodnôt inputov
+const BudgetSetup = ({ selectedYear, selectedMonth, allExpenseCategories = [] }) => {
+
+  // --- KOMBINOVANIE KATEGÓRIÍ ---
+  // Zoberieme predvolené a pridáme tie, ktoré prišli z hooku (z reálnych výdavkov),
+  // zabezpečíme unikátnosť a zoradíme ich.
+  const availableCategories = useMemo(() => {
+      const combined = new Set([...DEFAULT_BUDGET_CATEGORIES, ...allExpenseCategories]);
+      return [...combined].sort((a, b) => a.localeCompare(b)); // Sort alphabetically
+  }, [allExpenseCategories]);
+  // -----------------------------
+
+  const [budgets, setBudgets] = useState({}); // Stored budgets { category: amount }
+  const [inputs, setInputs] = useState({});   // Input values { category: stringValue }
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Funkcia na načítanie rozpočtov
+  const initializeInputs = useCallback((fetchedBudgetMap) => {
+      const initialInputs = availableCategories.reduce((acc, category) => {
+        acc[category] = fetchedBudgetMap[category] !== undefined ? fetchedBudgetMap[category].toString() : '';
+        return acc;
+      }, {});
+      setInputs(initialInputs);
+  }, [availableCategories]); // Závislosť na availableCategories je dôležitá
+
+
   const fetchBudgets = useCallback(async () => {
+    // Už nekontrolujeme dĺžku availableCategories, lebo máme predvolené
     setIsLoading(true);
     setError(null);
     setSuccessMessage('');
     try {
       const fetchedBudgets = await getBudgets(selectedYear, selectedMonth);
-      // Prevod poľa objektov na objekt pre ľahší prístup a predvyplnenie
       const budgetMap = fetchedBudgets.reduce((acc, budget) => {
-        acc[budget.category] = budget.amount;
+        // Store only if the category is in our final list (prevents old/deleted categories from API)
+        if (availableCategories.includes(budget.category)) {
+             acc[budget.category] = budget.amount;
+        }
         return acc;
       }, {});
       setBudgets(budgetMap);
-      // Predvyplň inputy načítanými hodnotami alebo prázdnym stringom
-      const initialInputs = CATEGORIES.reduce((acc, category) => {
-        acc[category] = budgetMap[category]?.toString() || '';
-        return acc;
-      }, {});
-      setInputs(initialInputs);
+      initializeInputs(budgetMap);
     } catch (err) {
-      setError('Chyba pri načítaní rozpočtov.');
-      console.error(err);
+      setError(err.response?.data?.message || err.message || 'Chyba pri načítaní rozpočtov.');
+      console.error("Fetch Budgets Error:", err);
+      initializeInputs({});
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, selectedMonth]);
+    // Zmenená závislosť - availableCategories sa môže meniť
+  }, [selectedYear, selectedMonth, initializeInputs, availableCategories]);
 
-  // Načítaj rozpočty pri zmene mesiaca/roka
+  useEffect(() => {
+    // Ak sa zmenia dostupné kategórie (napr. pribudne nová z výdavkov), reinicializuj inputy
+    // ale nezapíš to hneď ako zmenu rozpočtu, iba predvyplň
+    initializeInputs(budgets);
+  }, [availableCategories, initializeInputs, budgets]);
+
+
   useEffect(() => {
     fetchBudgets();
-  }, [fetchBudgets]);
+  }, [fetchBudgets]); // fetchBudgets už zahŕňa svoje závislosti
 
-  // Handler pre zmenu v inpute
+
   const handleInputChange = (category, value) => {
+    const sanitizedValue = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
     setInputs(prevInputs => ({
       ...prevInputs,
-      [category]: value
+      [category]: sanitizedValue
     }));
-     // Vyčisti správu o úspechu pri zmene
-     if (successMessage) setSuccessMessage('');
+    if (successMessage) setSuccessMessage('');
+    if (error) setError(null);
   };
 
-  // Handler pre uloženie všetkých rozpočtov
   const handleSaveBudgets = async () => {
     setIsSaving(true);
     setError(null);
     setSuccessMessage('');
     let hasError = false;
+    const operations = [];
 
-    // Prejdeme cez všetky kategórie a ich input hodnoty
-    for (const category of CATEGORIES) {
-      const amountStr = inputs[category];
-      // Ak input nie je prázdny, skúsime ho uložiť
-      if (amountStr.trim() !== '') {
-        const amount = parseFloat(amountStr);
-        // Validácia sumy
-        if (isNaN(amount) || amount < 0) {
-          setError(`Neplatná suma pre kategóriu "${category}". Zadajte kladné číslo.`);
-          hasError = true;
-          break; // Zastav pri prvej chybe
-        }
-        // Priprav dáta pre API
-        const budgetData = {
-          category: category,
-          amount: amount,
-          month: selectedMonth,
-          year: selectedYear
-        };
-        // Zavolaj API (vytvorí alebo updatne)
-        try {
-          await setBudget(budgetData);
-        } catch (err) {
-          setError(`Chyba pri ukladaní rozpočtu pre "${category}". Skúste znova.`);
-          console.error(`Error saving budget for ${category}:`, err);
-          hasError = true;
-          break; // Zastav pri prvej chybe
-        }
-      } else {
-          // Ak je input prázdny a existuje predtým uložený rozpočet, môžeme ho "vymazať" nastavením na 0?
-          // Alebo backend by mal zvládnuť absenciu dát. Pre jednoduchosť zatiaľ ignorujeme prázdne.
-          // Ak by sme chceli mazať rozpočet odstránením sumy, potrebovali by sme DELETE endpoint alebo špeciálnu logiku.
-          // Najjednoduchšie je nechať to tak - ak chceš rozpočet 0, zadaj 0. Ak ho nechceš, nechaj prázdne.
+    for (const category of availableCategories) {
+      const amountStr = inputs[category]?.trim() ?? '';
+      const currentBudget = budgets[category];
+      let targetAmount = null;
+
+      if (amountStr !== '') {
+         const amount = parseFloat(amountStr);
+          if (isNaN(amount) || amount < 0) {
+             setError(`Neplatná suma pre kategóriu "${category}". Zadajte kladné číslo.`);
+             hasError = true;
+             break;
+          }
+          targetAmount = amount;
+      }
+
+       // Handle potential floating point comparison issues
+       const currentBudgetNum = currentBudget !== undefined ? parseFloat(currentBudget) : undefined;
+       const targetAmountNum = targetAmount !== null ? parseFloat(targetAmount) : null;
+
+       // Determine if API call is needed:
+       // 1. Input is not empty and differs from stored value (or stored value doesn't exist)
+       // 2. Input is empty, but a stored value exists (meaning we might want to delete/set to 0)
+       const epsilon = 0.001; // Tolerance for float comparison
+       const valuesDiffer = targetAmountNum !== null && (currentBudgetNum === undefined || Math.abs(targetAmountNum - currentBudgetNum) > epsilon);
+       const shouldDelete = targetAmountNum === null && currentBudgetNum !== undefined && currentBudgetNum !== 0; // Only delete if it was previously non-zero
+
+      if (valuesDiffer || shouldDelete) {
+         const budgetData = {
+           category: category,
+           amount: targetAmountNum ?? 0, // Send 0 if input is empty/null
+           month: selectedMonth,
+           year: selectedYear
+         };
+         operations.push(setBudget(budgetData).catch(err => {
+             console.error(`Error saving budget for ${category}:`, err);
+             setError(prev => prev ? `${prev}\nChyba pre "${category}"` : `Chyba pri ukladaní pre "${category}".`);
+             hasError = true; // Mark that an error occurred
+         }));
       }
     }
 
+    if (hasError) {
+        setIsSaving(false);
+        return;
+    }
+
+    // Execute all API calls concurrently
+    try {
+        await Promise.all(operations);
+    } catch (aggregateError) {
+        // This catch might not be strictly necessary if individual catches handle 'hasError'
+        console.error("Error during bulk budget save:", aggregateError)
+        // hasError should already be true from individual catches
+    }
+
+
     setIsSaving(false);
-    if (!hasError) {
-      setSuccessMessage('Rozpočty boli úspešne uložené!');
-      // Znova načítaj rozpočty, aby sa zobrazili aktuálne hodnoty (nepovinné, ale dobré pre potvrdenie)
-      fetchBudgets();
-       // Vyčisti správu po pár sekundách
-       setTimeout(() => setSuccessMessage(''), 3000);
+    if (!hasError) { // Check if any individual error occurred
+        setSuccessMessage('Rozpočty boli úspešne aktualizované!');
+        fetchBudgets(); // Re-fetch to confirm and update state
+        setTimeout(() => setSuccessMessage(''), 4000);
     }
   };
 
+
   return (
-    <div className="p-5 bg-white rounded-xl shadow-lg border border-slate-200">
-      <h2 className="text-lg font-semibold mb-5 text-slate-800">Nastaviť Rozpočty ({selectedMonth}/{selectedYear})</h2>
-
-      {isLoading && <p className="text-slate-500 text-center">Načítavam...</p>}
-      {error && <p className="p-3 text-sm text-red-800 bg-red-100 rounded-lg border border-red-200 mb-4">{error}</p>}
-      {successMessage && <p className="p-3 text-sm text-green-800 bg-green-100 rounded-lg border border-green-200 mb-4">{successMessage}</p>}
-
-      {!isLoading && (
-        <div className="space-y-3">
-          {CATEGORIES.map(category => (
-            <div key={category} className="flex items-center justify-between space-x-4">
-              <label htmlFor={`budget-${category}`} className="text-sm font-medium text-slate-700 w-2/5 truncate" title={category}>
-                {category}
-              </label>
-              <div className="relative w-3/5">
-                 <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-sm">€</span>
-                 <input
-                    type="number"
-                    id={`budget-${category}`}
-                    value={inputs[category] || ''}
-                    onChange={(e) => handleInputChange(category, e.target.value)}
-                    placeholder="0.00"
-                    step="0.01"
-                    min="0"
-                    className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-lg shadow-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-150 text-right disabled:bg-slate-100"
-                    disabled={isSaving}
-                 />
-              </div>
-            </div>
-          ))}
-          <div className="pt-4 text-right">
-            <button
-              onClick={handleSaveBudgets}
-              disabled={isLoading || isSaving}
-              className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isSaving ? 'Ukladám...' : 'Uložiť rozpočty'}
-            </button>
-          </div>
+    <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200 h-full flex flex-col">
+        <div className="flex justify-between items-center mb-5">
+            <h2 className="text-lg font-semibold text-gray-800">
+                Nastaviť Rozpočty
+            </h2>
+             <span className="text-sm font-medium text-gray-500">
+                {selectedMonth}/{selectedYear}
+            </span>
         </div>
-      )}
+
+        <div className="mb-4 space-y-2">
+             {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
+             {successMessage && <Alert type="success" message={successMessage} onClose={() => setSuccessMessage('')} />}
+        </div>
+
+        <div className="flex-grow overflow-y-auto pr-1">
+            {isLoading && (
+                <div className="flex justify-center items-center h-full py-10">
+                    <Spinner size="md" color="border-purple-600"/>
+                </div>
+            )}
+
+            {/* Show categories even if loading is finished but list is empty (shouldn't happen with defaults) */}
+             {!isLoading && availableCategories.length === 0 && (
+                 <div className="text-center py-10 text-gray-500">
+                     <p>Neboli nájdené žiadne kategórie na nastavenie rozpočtu.</p>
+                 </div>
+             )}
+
+            {!isLoading && availableCategories.length > 0 && (
+                <div className="space-y-3">
+                  {availableCategories.map(category => (
+                    <div key={category} className="flex items-center justify-between space-x-3">
+                      <label
+                        htmlFor={`budget-${category}`}
+                        className="text-sm font-medium text-gray-600 w-2/5 truncate hover:text-clip hover:overflow-visible"
+                        title={category}
+                       >
+                        {category}
+                      </label>
+                      <div className="relative w-3/5">
+                         <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 text-sm pointer-events-none">€</span>
+                         <input
+                            type="text"
+                            inputMode="decimal"
+                            id={`budget-${category}`}
+                            value={inputs[category] || ''}
+                            onChange={(e) => handleInputChange(category, e.target.value)}
+                            placeholder="0.00"
+                            className={`
+                                w-full pl-8 pr-3 py-2 border rounded-lg shadow-sm
+                                text-right bg-gray-50 border-gray-300
+                                focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
+                                transition duration-150
+                                disabled:opacity-50 disabled:cursor-not-allowed
+                            `}
+                            disabled={isSaving || isLoading}
+                         />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+            )}
+        </div>
+
+        {!isLoading && availableCategories.length > 0 && (
+            <div className="pt-5 mt-auto text-right border-t border-gray-100">
+                 <button
+                    onClick={handleSaveBudgets}
+                    disabled={isLoading || isSaving}
+                    className={`
+                        inline-flex items-center justify-center px-6 py-2 border border-transparent rounded-lg shadow-sm
+                        text-sm font-medium text-white
+                        bg-cyan-700 hover:bg-cyan-800
+                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-600
+                        transition duration-150 ease-in-out
+                        disabled:opacity-60 disabled:cursor-not-allowed
+                    `}
+                >
+                    {isSaving ? (
+                        <>
+                            <Spinner size="sm" color="border-white" />
+                            <span className="ml-2">Ukladám...</span>
+                        </>
+                    ) : (
+                        'Uložiť Zmeny'
+                    )}
+                </button>
+            </div>
+        )}
     </div>
   );
 };
