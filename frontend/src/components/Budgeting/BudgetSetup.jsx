@@ -1,266 +1,240 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react'; // Added useMemo
-import { getBudgets, setBudget } from '../../api/budgetApi';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { getBudgetStatus, setBudget } from '../../api/budgetApi';
 import Spinner from '../UI/Spinner';
 import Alert from '../UI/Alert';
 
-// --- DEFINÍCIA ZÁKLADNÝCH KATEGÓRIÍ ---
-// Tento zoznam môžete upraviť podľa potreby
+// Komponenta ProgressBar – vizuálne zobrazenie percentuálneho stavu rozpočtu s tooltipom
+const ProgressBar = ({ percentage, budgeted, spent }) => {
+  const cappedPercentage = Math.min(percentage, 100); // Vizualizácia obmedzená na 100%
+  const overBudget = percentage > 100;
+  const percentageDisplay = Math.round(percentage);
+
+  let bgColor = 'bg-emerald-500'; // Zelená pre menej ako 80%
+  if (percentage >= 80 && percentage <= 100) {
+    bgColor = 'bg-amber-500'; // Oranžová pre 80-100%
+  } else if (overBudget) {
+    bgColor = 'bg-red-500'; // Červená pre prekročenie 100%
+  }
+
+  const tooltipText = overBudget
+    ? `Prekročené o ${(spent - budgeted).toFixed(2)} € (${percentageDisplay}%)`
+    : `${percentageDisplay}% z ${budgeted.toFixed(2)} €`;
+
+  return (
+    <div className="w-full bg-gray-200 rounded-full h-2.5 relative group my-1">
+      <div
+        className={`h-2.5 rounded-full ${bgColor} transition-all duration-500 ease-out`}
+        style={{ width: `${cappedPercentage}%` }}
+      ></div>
+      {/* Tooltip, ktorý sa zobrazí pri hover */}
+      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block px-2.5 py-1.5 bg-gray-800 text-white text-xs rounded-md shadow-lg whitespace-nowrap z-10">
+        {tooltipText}
+        <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-gray-800"></div>
+      </div>
+    </div>
+  );
+};
+
+// Predvolené kategórie – môžeš ich upraviť podľa potreby
 const DEFAULT_BUDGET_CATEGORIES = [
   "Potraviny",
-  "Bývanie", // Náklady na bývanie (nájom, hypotéka, energie)
-  "Doprava", // (Auto, MHD, palivo)
-  "Účty a Služby", // (Telefón, internet, poistky, predplatné)
-  "Osobné výdavky", // (Hygiena, kozmetika)
-  "Zdravie", // (Lekár, lieky, doplnky)
+  "Bývanie",
+  "Doprava",
+  "Účty a Služby",
+  "Osobné výdavky",
+  "Zdravie",
   "Oblečenie",
   "Reštaurácie a Kaviarne",
-  "Zábava a Voľný čas", // (Kultúra, šport, koníčky)
+  "Zábava a Voľný čas",
   "Vzdelávanie",
   "Darčeky a Dobročinnosť",
   "Dovolenka",
-  "Úspory a Investície", // Ak chcete sledovať plánované úspory ako rozpočet
+  "Úspory a Investície",
   "Ostatné",
 ];
-// -------------------------------------
 
-const BudgetSetup = ({ selectedYear, selectedMonth, allExpenseCategories = [] }) => {
+// BudgetCard – karta pre jednu kategóriu
+const BudgetCard = ({ category, data, onSliderChange, expenses }) => {
+  // Stav pre rozbalenie/zbalenie zoznamu výdavkov
+  const [isOpen, setIsOpen] = useState(false);
+  const toggleOpen = () => setIsOpen(prev => !prev);
 
-  // --- KOMBINOVANIE KATEGÓRIÍ ---
-  // Zoberieme predvolené a pridáme tie, ktoré prišli z hooku (z reálnych výdavkov),
-  // zabezpečíme unikátnosť a zoradíme ich.
+  // Získame základné údaje; ak nie sú, prednastavíme default hodnotu 50 €
+  const budgeted = data ? data.budgeted_amount : 50;
+  const spent = data ? data.spent_amount : 0;
+  const percentage = data ? data.percentage_spent : 0;
+
+  // Filter výdavkov pre aktuálnu kategóriu
+  const categoryExpenses = expenses.filter(expense => expense.category === category);
+
+  return (
+    <div className="bg-white shadow-lg rounded-xl p-6 mb-6">
+      <div className="flex justify-between items-center">
+        <h3 className="text-2xl font-bold text-gray-800">{category}</h3>
+        <button onClick={toggleOpen} className="text-sm text-blue-600 hover:underline">
+          {isOpen ? 'Skryť výdavky' : 'Zobraziť výdavky'}
+        </button>
+      </div>
+      <div className="mt-4">
+        <div className="flex justify-between items-center mb-2">
+          <span className="text-lg text-gray-700">Rozpočet: {budgeted.toFixed(2)} €</span>
+          <span className="text-sm text-gray-600">Vyčerpané: {spent.toFixed(2)} €</span>
+        </div>
+        {/* Slider pre zmenu rozpočtu */}
+        <input
+          type="range"
+          min="0"
+          max="500"
+          step="1"
+          value={budgeted}
+          onChange={(e) => onSliderChange(category, e.target.value)}
+          className="w-full mb-2"
+        />
+        {/* ProgressBar ukazujúci využitie rozpočtu */}
+        <ProgressBar percentage={percentage} budgeted={budgeted} spent={spent} />
+      </div>
+      {/* Rozbaliteľný zoznam výdavkov */}
+      {isOpen && (
+        <div className="mt-4 border-t pt-4">
+          {categoryExpenses.length > 0 ? (
+            <>
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">Výdavky:</h4>
+              <ul className="space-y-2">
+                {categoryExpenses.map(expense => (
+                  <li key={expense.id} className="flex justify-between text-base text-gray-600 border-b pb-1">
+                    <span className="truncate">{expense.description || 'Bez popisu'}</span>
+                    <span>{expense.amount.toFixed(2)} €</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-base text-gray-500">Žiadne výdavky pre túto kategóriu.</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Hlavná komponenta BudgetSetup, ktorá "spája" všetky karty
+const BudgetSetup = ({ selectedYear, selectedMonth, allExpenseCategories = [], expenses = [] }) => {
+  // Kombinácia predvolených kategórií a dodaných kategórií z výdavkov
   const availableCategories = useMemo(() => {
-      const combined = new Set([...DEFAULT_BUDGET_CATEGORIES, ...allExpenseCategories]);
-      return [...combined].sort((a, b) => a.localeCompare(b)); // Sort alphabetically
+    const combined = new Set([...DEFAULT_BUDGET_CATEGORIES, ...allExpenseCategories]);
+    return [...combined].sort((a, b) => a.localeCompare(b));
   }, [allExpenseCategories]);
-  // -----------------------------
 
-  const [budgets, setBudgets] = useState({}); // Stored budgets { category: amount }
-  const [inputs, setInputs] = useState({});   // Input values { category: stringValue }
+  // Stav rozpočtov, načítaných z API
+  const [budgetStatus, setBudgetStatus] = useState({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [globalError, setGlobalError] = useState(null);
 
-  const initializeInputs = useCallback((fetchedBudgetMap) => {
-      const initialInputs = availableCategories.reduce((acc, category) => {
-        acc[category] = fetchedBudgetMap[category] !== undefined ? fetchedBudgetMap[category].toString() : '';
-        return acc;
-      }, {});
-      setInputs(initialInputs);
-  }, [availableCategories]); // Závislosť na availableCategories je dôležitá
+  // Ref pre debounce timeouty pri zmene slidera
+  const debounceTimeoutsRef = useRef({});
 
-
-  const fetchBudgets = useCallback(async () => {
-    // Už nekontrolujeme dĺžku availableCategories, lebo máme predvolené
+  // Funkcia na načítanie stavu rozpočtov z API
+  const fetchBudgetStatus = useCallback(async () => {
     setIsLoading(true);
-    setError(null);
-    setSuccessMessage('');
+    setGlobalError(null);
     try {
-      const fetchedBudgets = await getBudgets(selectedYear, selectedMonth);
-      const budgetMap = fetchedBudgets.reduce((acc, budget) => {
-        // Store only if the category is in our final list (prevents old/deleted categories from API)
-        if (availableCategories.includes(budget.category)) {
-             acc[budget.category] = budget.amount;
+      const data = await getBudgetStatus(selectedYear, selectedMonth);
+      // Transformujeme pole do objektu pre jednoduchšiu prácu
+      const statusObj = {};
+      data.forEach(item => {
+        statusObj[item.category] = { ...item };
+      });
+      // Pre kategórie, ktoré nemajú nastavený rozpočet, nastavíme predvolených 50 €
+      availableCategories.forEach(category => {
+        if (!statusObj[category]) {
+          statusObj[category] = {
+            category,
+            spent_amount: 0,
+            budgeted_amount: 50,
+            remaining_amount: 50,
+            percentage_spent: 0,
+          };
         }
-        return acc;
-      }, {});
-      setBudgets(budgetMap);
-      initializeInputs(budgetMap);
+      });
+      setBudgetStatus(statusObj);
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Chyba pri načítaní rozpočtov.');
-      console.error("Fetch Budgets Error:", err);
-      initializeInputs({});
+      setGlobalError(err.response?.data?.message || err.message || 'Chyba pri načítaní stavu rozpočtov.');
+      console.error("Fetch Budget Status Error:", err);
     } finally {
       setIsLoading(false);
     }
-    // Zmenená závislosť - availableCategories sa môže meniť
-  }, [selectedYear, selectedMonth, initializeInputs, availableCategories]);
+  }, [selectedYear, selectedMonth, availableCategories]);
 
   useEffect(() => {
-    // Ak sa zmenia dostupné kategórie (napr. pribudne nová z výdavkov), reinicializuj inputy
-    // ale nezapíš to hneď ako zmenu rozpočtu, iba predvyplň
-    initializeInputs(budgets);
-  }, [availableCategories, initializeInputs, budgets]);
+    fetchBudgetStatus();
+  }, [fetchBudgetStatus]);
 
+  // Funkcia, ktorá spracováva zmenu hodnoty slidera
+  const handleSliderChange = (category, newBudgetValue) => {
+    setBudgetStatus(prev => {
+      const prevData = prev[category];
+      const spent = prevData ? prevData.spent_amount : 0;
+      const updatedBudget = parseFloat(newBudgetValue);
+      const percentage = updatedBudget > 0 ? (spent / updatedBudget) * 100 : 0;
+      return {
+        ...prev,
+        [category]: {
+          ...prevData,
+          budgeted_amount: updatedBudget,
+          remaining_amount: updatedBudget - spent,
+          percentage_spent: percentage,
+        }
+      };
+    });
 
-  useEffect(() => {
-    fetchBudgets();
-  }, [fetchBudgets]); // fetchBudgets už zahŕňa svoje závislosti
-
-
-  const handleInputChange = (category, value) => {
-    const sanitizedValue = value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-    setInputs(prevInputs => ({
-      ...prevInputs,
-      [category]: sanitizedValue
-    }));
-    if (successMessage) setSuccessMessage('');
-    if (error) setError(null);
-  };
-
-  const handleSaveBudgets = async () => {
-    setIsSaving(true);
-    setError(null);
-    setSuccessMessage('');
-    let hasError = false;
-    const operations = [];
-
-    for (const category of availableCategories) {
-      const amountStr = inputs[category]?.trim() ?? '';
-      const currentBudget = budgets[category];
-      let targetAmount = null;
-
-      if (amountStr !== '') {
-         const amount = parseFloat(amountStr);
-          if (isNaN(amount) || amount < 0) {
-             setError(`Neplatná suma pre kategóriu "${category}". Zadajte kladné číslo.`);
-             hasError = true;
-             break;
-          }
-          targetAmount = amount;
+    // Použijeme debounce (500ms) na API volanie
+    if (debounceTimeoutsRef.current[category]) {
+      clearTimeout(debounceTimeoutsRef.current[category]);
+    }
+    debounceTimeoutsRef.current[category] = setTimeout(async () => {
+      try {
+        await setBudget({
+          category,
+          amount: parseFloat(newBudgetValue),
+          month: selectedMonth,
+          year: selectedYear
+        });
+        fetchBudgetStatus();
+      } catch (err) {
+        console.error(`Error saving budget for ${category}:`, err);
+        setGlobalError(`Chyba pri ukladaní rozpočtu pre ${category}.`);
       }
-
-       // Handle potential floating point comparison issues
-       const currentBudgetNum = currentBudget !== undefined ? parseFloat(currentBudget) : undefined;
-       const targetAmountNum = targetAmount !== null ? parseFloat(targetAmount) : null;
-
-       // Determine if API call is needed:
-       // 1. Input is not empty and differs from stored value (or stored value doesn't exist)
-       // 2. Input is empty, but a stored value exists (meaning we might want to delete/set to 0)
-       const epsilon = 0.001; // Tolerance for float comparison
-       const valuesDiffer = targetAmountNum !== null && (currentBudgetNum === undefined || Math.abs(targetAmountNum - currentBudgetNum) > epsilon);
-       const shouldDelete = targetAmountNum === null && currentBudgetNum !== undefined && currentBudgetNum !== 0; // Only delete if it was previously non-zero
-
-      if (valuesDiffer || shouldDelete) {
-         const budgetData = {
-           category: category,
-           amount: targetAmountNum ?? 0, // Send 0 if input is empty/null
-           month: selectedMonth,
-           year: selectedYear
-         };
-         operations.push(setBudget(budgetData).catch(err => {
-             console.error(`Error saving budget for ${category}:`, err);
-             setError(prev => prev ? `${prev}\nChyba pre "${category}"` : `Chyba pri ukladaní pre "${category}".`);
-             hasError = true; // Mark that an error occurred
-         }));
-      }
-    }
-
-    if (hasError) {
-        setIsSaving(false);
-        return;
-    }
-
-    // Execute all API calls concurrently
-    try {
-        await Promise.all(operations);
-    } catch (aggregateError) {
-        // This catch might not be strictly necessary if individual catches handle 'hasError'
-        console.error("Error during bulk budget save:", aggregateError)
-        // hasError should already be true from individual catches
-    }
-
-
-    setIsSaving(false);
-    if (!hasError) { // Check if any individual error occurred
-        setSuccessMessage('Rozpočty boli úspešne aktualizované!');
-        fetchBudgets(); // Re-fetch to confirm and update state
-        setTimeout(() => setSuccessMessage(''), 4000);
-    }
+    }, 500);
   };
-
 
   return (
     <div className="p-6 bg-white rounded-xl shadow-lg border border-gray-200 h-full flex flex-col">
-        <div className="flex justify-between items-center mb-5">
-            <h2 className="text-lg font-semibold text-gray-800">
-                Nastaviť Rozpočty
-            </h2>
-             <span className="text-sm font-medium text-gray-500">
-                {selectedMonth}/{selectedYear}
-            </span>
-        </div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-3xl font-bold text-gray-800">Rozpočet a Stav</h2>
+        <span className="text-sm font-medium text-gray-500">{selectedMonth}/{selectedYear}</span>
+      </div>
 
-        <div className="mb-4 space-y-2">
-             {error && <Alert type="error" message={error} onClose={() => setError(null)} />}
-             {successMessage && <Alert type="success" message={successMessage} onClose={() => setSuccessMessage('')} />}
-        </div>
+      {globalError && (
+        <Alert type="error" message={globalError} onClose={() => setGlobalError(null)} />
+      )}
 
-        <div className="flex-grow overflow-y-auto pr-1">
-            {isLoading && (
-                <div className="flex justify-center items-center h-full py-10">
-                    <Spinner size="md" color="border-purple-600"/>
-                </div>
-            )}
-
-            {/* Show categories even if loading is finished but list is empty (shouldn't happen with defaults) */}
-             {!isLoading && availableCategories.length === 0 && (
-                 <div className="text-center py-10 text-gray-500">
-                     <p>Neboli nájdené žiadne kategórie na nastavenie rozpočtu.</p>
-                 </div>
-             )}
-
-            {!isLoading && availableCategories.length > 0 && (
-                <div className="space-y-3">
-                  {availableCategories.map(category => (
-                    <div key={category} className="flex items-center justify-between space-x-3">
-                      <label
-                        htmlFor={`budget-${category}`}
-                        className="text-sm font-medium text-gray-600 w-2/5 truncate hover:text-clip hover:overflow-visible"
-                        title={category}
-                       >
-                        {category}
-                      </label>
-                      <div className="relative w-3/5">
-                         <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 text-sm pointer-events-none">€</span>
-                         <input
-                            type="text"
-                            inputMode="decimal"
-                            id={`budget-${category}`}
-                            value={inputs[category] || ''}
-                            onChange={(e) => handleInputChange(category, e.target.value)}
-                            placeholder="0.00"
-                            className={`
-                                w-full pl-8 pr-3 py-2 border rounded-lg shadow-sm
-                                text-right bg-gray-50 border-gray-300
-                                focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500
-                                transition duration-150
-                                disabled:opacity-50 disabled:cursor-not-allowed
-                            `}
-                            disabled={isSaving || isLoading}
-                         />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-            )}
-        </div>
-
-        {!isLoading && availableCategories.length > 0 && (
-            <div className="pt-5 mt-auto text-right border-t border-gray-100">
-                 <button
-                    onClick={handleSaveBudgets}
-                    disabled={isLoading || isSaving}
-                    className={`
-                        inline-flex items-center justify-center px-6 py-2 border border-transparent rounded-lg shadow-sm
-                        text-sm font-medium text-white
-                        bg-cyan-700 hover:bg-cyan-800
-                        focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-600
-                        transition duration-150 ease-in-out
-                        disabled:opacity-60 disabled:cursor-not-allowed
-                    `}
-                >
-                    {isSaving ? (
-                        <>
-                            <Spinner size="sm" color="border-white" />
-                            <span className="ml-2">Ukladám...</span>
-                        </>
-                    ) : (
-                        'Uložiť Zmeny'
-                    )}
-                </button>
-            </div>
+      <div className="flex-grow overflow-y-auto pr-1 space-y-6">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full py-10">
+            <Spinner size="md" color="border-purple-600" />
+          </div>
+        ) : (
+          availableCategories.map(category => (
+            <BudgetCard 
+              key={category}
+              category={category}
+              data={budgetStatus[category]}
+              onSliderChange={handleSliderChange}
+              expenses={expenses}
+            />
+          ))
         )}
+      </div>
     </div>
   );
 };
