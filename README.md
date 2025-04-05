@@ -146,18 +146,7 @@ Contributions are welcome! Whether it's bug fixes, feature implementations, or d
 *   **Backend (Python):** Follow PEP 8 guidelines. Consider using a formatter like Black and a linter like Flake8.
 *   **Frontend (React/JS/TS):** Follow standard React best practices. Consider using ESLint and Prettier for consistent formatting.
 
-## 🐛 Initial Issues to Tackle (Examples)
 
-Here are a few ideas for initial contributions:
-
-1.  **#1 [Bug]:** The "Remaining" amount in the Budget Card doesn't update immediately after changing the budget via the input field, only after a page refresh or data refetch. *(Hint: Might need slightly adjusted optimistic update logic or state management)*.
-2.  **#2 [Feature]:** Add input validation to the Expense/Income forms (e.g., prevent negative amounts, ensure description is not empty before submitting). Show user-friendly error messages below the respective fields.
-3.  **#3 [Enhancement]:** Improve the `ReportGenerator` component. Add a simple pie chart (using a library like `react-chartjs-2` or `recharts`) showing the distribution of expenses by category for the selected month.
-4.  **#4 [Backend]:** Implement basic input validation on the backend services (e.g., in `add_new_expense`, `set_or_update_budget`) to ensure data integrity even if frontend validation fails. Raise specific `ValidationError` or `BudgetServiceError` exceptions.
-5.  **#5 [Documentation]:** Add more detailed documentation within the code (docstrings for Python functions/classes, comments for complex React logic). Improve setup instructions if anything is unclear.
-6.  **#6 [UI]:** When a budget item is successfully saved via the input field in `BudgetCard`, show a temporary success indicator (like a green checkmark) next to the input field for a second or two.
-
-**(Link these descriptions to actual issues you create on GitHub!)**
 
 ## 📜 License
 
