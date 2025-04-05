@@ -1,7 +1,5 @@
 # FinApp - Personal Finance Tracker 💰
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-<!-- Add other badges if applicable: build status, code coverage, etc. -->
 
 FinApp is a modern, web-based personal finance tracker designed to help users manage their income, expenses, and budgets effectively. Built with React (Vite) on the frontend and Flask (Python) on the backend.
 
@@ -148,12 +146,7 @@ Contributions are welcome! Whether it's bug fixes, feature implementations, or d
 
 
 
-## 📜 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-_Made with ❤️ by [Your Name/Org]_
+_Made with ❤️ by Dospalko_
 
 ---
