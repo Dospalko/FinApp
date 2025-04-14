@@ -6,10 +6,11 @@ import { useExpenses } from '../hooks/useExpenses';
 import { useIncomes } from '../hooks/useIncomes';
 
 // Dashboard Components
+import WeeklySnapshotCard from '../components/Reports/WeeklySnapshotCard';
 import SummarySection from '../components/Summary/SummarySection';
 import ExpensesSection from '../components/Expenses/ExpensesSection';
 import IncomesSection from '../components/Incomes/IncomesSection';
-import BudgetsDisplay from '../components/Budgeting/BudgetsDisplay'; // Použitie novej komponenty
+import BudgetsDisplay from '../components/Budgeting/BudgetsDisplay';
 import Rule503020Status from '../components/Budgeting/Rule503020Status';
 import Tabs from '../components/Shared/Tabs';
 import DateSelector from '../components/Shared/DateSelector';
