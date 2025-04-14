@@ -103,34 +103,71 @@ const DashboardPage = () => {
     // ---
 
     return (
-        <>
-            <motion.div variants={summaryVariants} {...motionProps}>
-                <SummarySection totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} isExpensesLoading={expensesHook.isLoading} isIncomesLoading={incomesHook.isLoading} />
+        <div className="space-y-6">
+            {/* Weekly Snapshot Card at the top */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
+                <WeeklySnapshotCard />
             </motion.div>
 
+            {/* Existing Summary Section */}
+            <motion.div variants={summaryVariants} {...motionProps}>
+                <SummarySection 
+                    totalIncome={totalIncome} 
+                    totalExpenses={totalExpenses} 
+                    balance={balance} 
+                    isExpensesLoading={expensesHook.isLoading} 
+                    isIncomesLoading={incomesHook.isLoading} 
+                />
+            </motion.div>
+
+            {/* Existing Tabs */}
             <Tabs tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} />
 
+            {/* Existing Tab Content */}
             <AnimatePresence mode='wait'>
                 <motion.div key={activeTab} variants={tabContentVariants} {...motionProps} className="mt-6">
                     {activeTab === 'expenses' && (
                         <ExpensesSection
-                            expensesHook={expensesHook} processingItem={processingItem}
-                            onAddExpense={handleAddExpense} onUpdateExpense={handleUpdateExpense} onDeleteExpense={handleDeleteExpense}
+                            expensesHook={expensesHook}
+                            processingItem={processingItem}
+                            onAddExpense={handleAddExpense}
+                            onUpdateExpense={handleUpdateExpense}
+                            onDeleteExpense={handleDeleteExpense}
                         />
                     )}
                     {activeTab === 'incomes' && (
                         <IncomesSection
-                            incomesHook={incomesHook} processingItem={processingItem}
-                            onAddIncome={handleAddIncome} onUpdateIncome={handleUpdateIncome} onDeleteIncome={handleDeleteIncome}
+                            incomesHook={incomesHook}
+                            processingItem={processingItem}
+                            onAddIncome={handleAddIncome}
+                            onUpdateIncome={handleUpdateIncome}
+                            onDeleteIncome={handleDeleteIncome}
                         />
                     )}
                     {activeTab === 'budgets' && (
                         <div className="space-y-8">
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1}} transition={{delay: 0.1}}>
-                                <DateSelector selectedMonth={selectedMonth} selectedYear={selectedYear} onMonthChange={handleMonthChange} onYearChange={handleYearChange} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}>
+                                <DateSelector 
+                                    selectedMonth={selectedMonth} 
+                                    selectedYear={selectedYear} 
+                                    onMonthChange={handleMonthChange} 
+                                    onYearChange={handleYearChange} 
+                                />
                             </motion.div>
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1}} transition={{delay: 0.15}}>
-                                <ReportGenerator selectedMonth={selectedMonth} selectedYear={selectedYear} incomes={incomesHook.incomes} expenses={expensesHook.expenses} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} />
+                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
+                                <ReportGenerator 
+                                    selectedMonth={selectedMonth} 
+                                    selectedYear={selectedYear} 
+                                    incomes={incomesHook.incomes} 
+                                    expenses={expensesHook.expenses} 
+                                    totalIncome={totalIncome} 
+                                    totalExpenses={totalExpenses} 
+                                    balance={balance} 
+                                />
                             </motion.div>
 
                             <motion.div
@@ -142,8 +179,6 @@ const DashboardPage = () => {
                                     <BudgetsDisplay
                                         selectedYear={selectedYear}
                                         selectedMonth={selectedMonth}
-                                        // Pass expenses hook to avoid loading them twice? Or let BudgetsDisplay use its own hook instance.
-                                        // If passing hook: expensesHook={expensesHook}
                                     />
                                 </motion.div>
 
@@ -158,7 +193,7 @@ const DashboardPage = () => {
                     )}
                 </motion.div>
             </AnimatePresence>
-        </>
+        </div>
     );
 };
 export default DashboardPage;
