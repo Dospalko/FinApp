@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from .config import Config
 from .database import db, ma
@@ -12,42 +12,30 @@ def create_app(config_class=Config):
     app = Flask(__name__, instance_relative_config=True, instance_path=instance_path_abs)
     app.config.from_object(config_class)
 
-    # print("--- Flask App Configuration ---")
-    # print(f"SECRET_KEY loaded: {'Yes' if app.config.get('SECRET_KEY') else 'No (Using default!)'}")
-    # print(f"SQLALCHEMY_DATABASE_URI: {app.config.get('SQLALCHEMY_DATABASE_URI')}")
-    # print(f"Instance Path: {app.instance_path}")
-    # print(f"CORS Origins: {os.environ.get('CORS_ORIGINS', 'http://localhost:5173')}")
-    # print("-----------------------------")
+    # Initialize CORS before anything else
+    CORS(app,
+         resources={r"/api/*": {
+             "origins": ["http://localhost:5173"],  # Frontend URL
+             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+             "allow_headers": ["Content-Type", "Authorization"],
+             "supports_credentials": True
+         }},
+         supports_credentials=True
+    )
 
     db.init_app(app)
     ma.init_app(app)
-    CORS(app,
-         origins=os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(','),
-         supports_credentials=True,
-         methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-        )
 
-    # print("--- Registering Blueprints ---")
+    # Register blueprints with explicit prefixes
     for bp in all_blueprints:
-        has_rules = any(rule.endpoint.startswith(f"{bp.name}.") for rule in app.url_map.iter_rules())
-        if bp.name == 'base' and not has_rules:
-             # print(f"Skipping registration of Blueprint '{bp.name}' as it has no routes.")
-             continue
-
-        if bp.name == 'auth': url_prefix = '/api/auth'
-        elif bp.name != 'base': url_prefix = '/api'
-        else: url_prefix = None
-
-        try:
-            app.register_blueprint(bp, url_prefix=url_prefix)
-            # print(f"Registered Blueprint: '{bp.name}' at prefix: {url_prefix or '/'}")
-        except Exception as e: print(f"!!! Error registering blueprint '{bp.name}': {e}")
-    # print("--- Blueprint registration finished ---")
+        if bp.name == 'auth':
+            app.register_blueprint(bp, url_prefix='/api/auth')
+        elif bp.name != 'base':
+            app.register_blueprint(bp, url_prefix='/api')
+        else:
+            app.register_blueprint(bp)
 
     register_error_handlers(app)
-    # print("Error handlers registered.")
-    register_cli_commands(app)
-    # print("CLI commands registered.")
 
     return app
 
