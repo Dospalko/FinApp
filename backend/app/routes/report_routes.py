@@ -2,7 +2,7 @@
 from flask import Blueprint, jsonify, g, request
 from ..services.report_service import ReportService, ReportServiceError
 from ..schemas.weekly_focus_schema import weekly_focus_schema, weekly_focus_input_schema
-from ..utils.auth_utils import token_required  # tvoj vlastný auth dekorátor
+from ..utils.auth_utils import token_required
 from marshmallow import ValidationError
 import traceback
 
@@ -11,8 +11,7 @@ report_bp = Blueprint('reports', __name__)
 @report_bp.route('/weekly-snapshot', methods=['GET'])
 @token_required
 def get_weekly_snapshot_route():
-    """Endpoint na ziskanie týždenného prehľadu (income, expenses, net flow, atď.)."""
-    user_id = g.current_user.id  # ID prihláseného používateľa
+    user_id = g.current_user.id
     try:
         snapshot = ReportService.get_weekly_snapshot(user_id)
         return jsonify(snapshot), 200
@@ -26,13 +25,11 @@ def get_weekly_snapshot_route():
 @report_bp.route('/weekly-focus', methods=['POST'])
 @token_required
 def set_weekly_focus_route():
-    """Endpoint na uloženie krátkej poznámky (fokusu) pre daný týždeň."""
     user_id = g.current_user.id
     json_data = request.get_json()
     if not json_data:
         return jsonify({"error": "No input data provided"}), 400
 
-    # Validácia s Marshmallow
     try:
         data = weekly_focus_input_schema.load(json_data)
     except ValidationError as err:

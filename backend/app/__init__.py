@@ -12,13 +12,15 @@ def create_app(config_class=Config):
     app = Flask(__name__, instance_relative_config=True, instance_path=instance_path_abs)
     app.config.from_object(config_class)
 
-    # Initialize CORS before anything else
+    # Updated CORS configuration
     CORS(app,
          resources={r"/api/*": {
-             "origins": ["http://localhost:5173"],  # Frontend URL
+             "origins": ["http://localhost:5173", "http://127.0.0.1:5173"],  # Add both localhost variations
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
              "allow_headers": ["Content-Type", "Authorization"],
-             "supports_credentials": True
+             "supports_credentials": True,
+             "expose_headers": ["Content-Type", "Authorization"],  # Add expose_headers
+             "max_age": 3600  # Cache preflight requests for 1 hour
          }},
          supports_credentials=True
     )
@@ -30,13 +32,17 @@ def create_app(config_class=Config):
     for bp in all_blueprints:
         if bp.name == 'auth':
             app.register_blueprint(bp, url_prefix='/api/auth')
+        elif bp.name == 'reports':
+            # <-- DÔLEŽITÉ: Tvoj blueprint 'reports' dostane prefix /api/reports
+            app.register_blueprint(bp, url_prefix='/api/reports')
         elif bp.name != 'base':
+            # Všetky ostatné (okrem 'base') dostanú prefix /api
             app.register_blueprint(bp, url_prefix='/api')
         else:
+            # 'base' blueprint ide bez prefixu
             app.register_blueprint(bp)
 
     register_error_handlers(app)
-
     return app
 
 def register_cli_commands(app):
@@ -48,14 +54,22 @@ def register_cli_commands(app):
              db_path = db_uri.split('///')[1]
              instance_dir = os.path.dirname(db_path)
              if not os.path.exists(instance_dir):
-                 try: os.makedirs(instance_dir); print(f"Created instance directory: {instance_dir}")
-                 except OSError as e: print(f"Error creating instance directory {instance_dir}: {e}"); return
+                 try:
+                     os.makedirs(instance_dir)
+                     print(f"Created instance directory: {instance_dir}")
+                 except OSError as e:
+                     print(f"Error creating instance directory {instance_dir}: {e}")
+                     return
         with app.app_context():
-             try: db.create_all(); print("Database tables created successfully.")
-             except Exception as e: print(f"Error creating database tables: {e}")
+             try:
+                 db.create_all()
+                 print("Database tables created successfully.")
+             except Exception as e:
+                 print(f"Error creating database tables: {e}")
 
     @app.cli.command('seed-db')
     def seed_db_command():
+         import datetime
          print("Attempting to seed database...")
          with app.app_context():
              from .models import User, Expense, Income, Budget # Importuj všetky modely
@@ -92,14 +106,17 @@ def register_cli_commands(app):
         output = []
         for rule in app.url_map.iter_rules():
             options = {}
-            for arg in rule.arguments: options[arg] = f"[{arg}]"
+            for arg in rule.arguments:
+                options[arg] = f"[{arg}]"
             methods = ','.join(sorted(rule.methods))
             relevant_methods = {m for m in methods.split(',') if m not in ['OPTIONS', 'HEAD']}
-            if not relevant_methods: continue
+            if not relevant_methods:
+                continue
             methods_str = ','.join(sorted(list(relevant_methods)))
             url = urllib.parse.unquote(rule.rule)
             line = f"{rule.endpoint:35s} {methods_str:25s} {url}"
             output.append(line)
         print("\n--- Available Application Routes ---")
-        for line in sorted(output): print(line)
+        for line in sorted(output):
+            print(line)
         print("------------------------------------\n")

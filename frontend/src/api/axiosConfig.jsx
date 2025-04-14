@@ -1,7 +1,9 @@
+// frontend/src/api/axiosConfig.js
 import axios from 'axios';
 
 const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000',  // Remove /api from here
+    // V baseURL necháme len http://127.0.0.1:5000
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000',
     headers: { 'Content-Type': 'application/json' },
 });
 
@@ -23,8 +25,6 @@ apiClient.interceptors.response.use(
         if (error.response && error.response.status === 401) {
             console.warn("Unauthorized (401). Clearing token.");
             localStorage.removeItem('authToken');
-            // Necháme AuthContext a routovanie riešiť presmerovanie
-            // window.location.href = '/login'; // Toto by spôsobilo full refresh
         }
         return Promise.reject(error);
     }
