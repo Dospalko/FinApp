@@ -26,7 +26,7 @@ export const fetchCurrentUser = async (token) => {
     if (!token) throw new Error("Token required for fetchCurrentUser");
     try {
         // Načítanie /me cez authApiClient ale s tokenom
-        const response = await axios.get(`${AUTH_API_URL}/me`, {
+        const response = await axios.get(`/me`, {
              baseURL: '',
              headers: { Authorization: `Bearer ${token}` }
         });
