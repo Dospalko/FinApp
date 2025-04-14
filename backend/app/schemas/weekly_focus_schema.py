@@ -1,31 +1,28 @@
 # backend/app/schemas/weekly_focus_schema.py
-
 from ..database import ma
-from ..models.weekly_focus import WeeklyFocus
-from marshmallow import fields, Schema
-from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+from ..models import WeeklyFocus # Import modelu
+from marshmallow import fields, validate, Schema
+import datetime
 
-
-# 1) Schéma na VSTUP – validuje, čo ti posiela frontend (napr. focusText).
-class WeeklyFocusInputSchema(Schema):
-    focusText = fields.Str(required=True)
-
-weekly_focus_input_schema = WeeklyFocusInputSchema()
-
-
-# 2) Schéma na VÝSTUP – serializuje model WeeklyFocus (vraciaš ho napr. ako JSON).
-class WeeklyFocusSchema(SQLAlchemyAutoSchema):
+class WeeklyFocusSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = WeeklyFocus
         load_instance = True
-        # Ak nechceš vrátiť celé user prepojenie, stačí:
-        # exclude = ("user",)
+        include_fk = True
 
-    # Môžeš voliteľne “nadpísať” polia, ak chceš zmeniť správanie.
-    id = fields.Int(dump_only=True)
-    user_id = fields.Int()        # Nastavené, aby bolo súčasťou JSON
-    focus_text = fields.Str()
-    date_set = fields.DateTime()
+    id = fields.Integer(dump_only=True)
+    user_id = fields.Integer(dump_only=True)
+    week_start_date = fields.Date(dump_only=True) # Len na čítanie
+    focus_text = fields.String(required=False, validate=validate.Length(max=255), allow_none=True)
+    date_set = fields.DateTime(dump_only=True)
 
-weekly_focus_schema = WeeklyFocusSchema()           # Pre jeden objekt
-weekly_focuses_schema = WeeklyFocusSchema(many=True)  # Pre viac objektov
+class WeeklyFocusInputSchema(Schema):
+     # Mapovanie z camelCase focusText na snake_case focus_text nie je nutné, ak service prijíma focusText
+     # Ak by service metóda očakávala snake_case, použil by si data_key:
+     # focus_text = fields.String(required=True, validate=validate.Length(min=1, max=255), data_key="focusText")
+     # Ale keďže service.set_weekly_focus prijíma argument 'focus_text', necháme to takto:
+     focusText = fields.String(required=True, validate=validate.Length(min=1, max=255))
+
+
+weekly_focus_schema = WeeklyFocusSchema()
+weekly_focus_input_schema = WeeklyFocusInputSchema()

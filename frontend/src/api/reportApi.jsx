@@ -1,39 +1,29 @@
 // frontend/src/api/reportApi.js
 import apiClient from './axiosConfig';
 
-/**
- * Získa dáta pre týždenný prehľad z reálneho backendu.
- * Volá endpoint: GET /api/reports/weekly-snapshot
- */
 export const getWeeklySnapshot = async () => {
-  console.log("API: Calling getWeeklySnapshot from real backend");
+  console.log("API: Calling GET /api/reports/weekly-snapshot");
   try {
-    // Posielame GET na /api/reports/weekly-snapshot
-    // => vo výsledku http://127.0.0.1:5000/api/reports/weekly-snapshot
-    const response = await apiClient.get('api/reports/weekly-snapshot');
+    const response = await apiClient.get('/api/reports/weekly-snapshot');
     return response.data;
   } catch (error) {
-    console.error("Error fetching weekly snapshot:", error);
-    throw error;
+    console.error("Error fetching weekly snapshot:", error.response?.data || error.message, error);
+    // Vráť objekt s chybou, aby si ho mohol spracovať v komponente
+    throw error.response?.data || new Error(error.message || 'Unknown error fetching weekly snapshot');
   }
 };
 
-/**
- * Uloží týždenný fokus do reálnej DB cez backend.
- * Volá endpoint: POST /api/reports/weekly-focus
- * @param {object} focusData - napr. { focusText: "Týždenný cieľ" }
- */
 export const setWeeklyFocus = async (focusData) => {
-  console.log("API: Calling setWeeklyFocus with:", focusData);
+  console.log("API: Calling POST /api/reports/weekly-focus with:", focusData);
   try {
-    // Posielame POST na /api/reports/weekly-focus
-    // => vo výsledku http://127.0.0.1:5000/api/reports/weekly-focus
-    const response = await apiClient.post('api/reports/weekly-focus', {
-      focusText: focusData.focusText,
-    });
+    // Backend očakáva objekt s kľúčom 'focusText' podľa schémy WeeklyFocusInputSchema
+    // Ak focusData už má tento tvar (napr. { focusText: "..." }), je to OK.
+    // Ak posielaš len string, treba ho zabaliť: { focusText: focusData }
+    // Predpokladáme, že posielaš správny objekt:
+    const response = await apiClient.post('/api/reports/weekly-focus', focusData);
     return response.data;
   } catch (error) {
-    console.error("Error setting weekly focus:", error);
-    throw error;
+    console.error("Error setting weekly focus:", error.response?.data || error.message, error);
+    throw error.response?.data || new Error(error.message || 'Unknown error setting weekly focus');
   }
 };

@@ -1,5 +1,5 @@
 # backend/app/utils/auth_utils.py
-import jwt
+import jwt # type: ignore
 from functools import wraps
 from flask import request, jsonify, current_app, g
 from ..database import db
