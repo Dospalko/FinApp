@@ -104,7 +104,7 @@ const DashboardPage = () => {
 
     return (
         <div className="space-y-6">
-            {/* Weekly Snapshot Card at the top */}
+            {/* Weekly Snapshot Card with collapse functionality */}
             <motion.div
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
