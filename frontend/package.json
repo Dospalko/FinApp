@@ -14,6 +14,7 @@
     "axios": "^1.8.4",
     "chart.js": "^4.4.8",
     "framer-motion": "^12.6.2",
+    "get-contrast": "^3.0.0",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "react": "^19.0.0",
